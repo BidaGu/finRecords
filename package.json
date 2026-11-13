@@ -1,0 +1,16 @@
+{
+  "name": "finance-recording",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "node scripts/build-standalone.mjs --check",
+    "standalone": "node scripts/build-standalone.mjs",
+    "format": "prettier --write \"src/**/*.mjs\" \"scripts/*.mjs\" \"tests/*.mjs\" src/layout.html styles.css"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "prettier": "3.9.10"
+  }
+}
