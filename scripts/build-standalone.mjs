@@ -6,6 +6,11 @@ import { spawnSync } from 'node:child_process';
 import { build } from 'esbuild';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const { version: appVersion } = JSON.parse(
+  await fs.readFile(path.join(root, 'package.json'), 'utf8'),
+);
+if (typeof appVersion !== 'string' || !/^\d+\.\d+\.\d+$/.test(appVersion))
+  throw new Error('Set a supported application release version in package.json.');
 async function walk(dir) {
   const files = [];
   for (const item of await fs.readdir(dir, { withFileTypes: true })) {
@@ -16,8 +21,8 @@ async function walk(dir) {
   return files;
 }
 const sources = await walk(path.join(root, 'src/recording'));
-if (sources.length !== 20)
-  throw new Error(`Expected 20 application modules; found ${sources.length}.`);
+if (sources.length !== 34)
+  throw new Error(`Expected 34 application modules; found ${sources.length}.`);
 for (const file of sources) {
   const result = spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' });
   if (result.status !== 0) throw new Error(result.stderr);
@@ -36,6 +41,10 @@ const result = await build({
 const script = result.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 new Function(script);
 let html = await fs.readFile(path.join(root, 'src/layout.html'), 'utf8');
+const versionMeta = `<meta name="application-version" content="${appVersion}">`;
+html = /<meta\b[^>]*name="application-version"[^>]*>/i.test(html)
+  ? html.replace(/<meta\b[^>]*name="application-version"[^>]*>/i, versionMeta)
+  : html.replace('</head>', `${versionMeta}</head>`);
 const css = await fs.readFile(path.join(root, 'styles.css'), 'utf8');
 if (/<\/style/i.test(css)) throw new Error('Unexpected embedded style closing tag.');
 const hash = (value) => createHash('sha256').update(value).digest('base64');

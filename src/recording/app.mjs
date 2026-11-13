@@ -14,6 +14,9 @@ import { createTransfersUI } from './ui/transfers-ui.mjs';
 import { createStatementsUI } from './ui/statements-ui.mjs';
 import { createInvestmentsUI } from './ui/investments-ui.mjs';
 import { createSelectionPresets } from './ui/selection-presets.mjs';
+import { createEntryAnalysisUI } from './ui/entry-analysis-ui.mjs';
+import { createAccountAnalysisUI } from './ui/account-analysis-ui.mjs';
+import { createCalculatorWorkspace } from './ui/calculators/workspace.mjs';
 import { showForm, field, esc } from './ui/shared-controls.mjs';
 
 const $ = (id) => document.getElementById(id);
@@ -28,7 +31,10 @@ const session = createSession(createDocument(), {
     );
   },
 });
+const workspaceTabs = ['accounts', 'records', 'analysis', 'calculators'];
+const analysisTabs = ['accounts', 'records'];
 let activeTab = 'accounts',
+  activeAnalysisTab = 'accounts',
   screens = [],
   initialized = false;
 const ctx = {
@@ -57,7 +63,33 @@ const accounts = createAccountsUI(ctx),
 const transfers = createTransfersUI(ctx),
   statements = createStatementsUI(ctx),
   records = createRecordsUI(ctx);
-screens = [accounts, investments, transfers, statements, records];
+const entryAnalysis = createEntryAnalysisUI(
+  Object.freeze({
+    getDocument: () => session.snapshot(),
+    getSelectedEntryIds: () => selection.selectedIds(),
+    navigate: (tab) => navigate(tab),
+    isActive: () => activeTab === 'analysis' && activeAnalysisTab === 'records',
+  }),
+);
+const accountAnalysis = createAccountAnalysisUI(
+  Object.freeze({
+    getDocument: () => session.snapshot(),
+    isActive: () => activeTab === 'analysis' && activeAnalysisTab === 'accounts',
+  }),
+);
+const calculators = createCalculatorWorkspace(
+  Object.freeze({ isActive: () => activeTab === 'calculators' }),
+);
+screens = [
+  accounts,
+  investments,
+  transfers,
+  statements,
+  records,
+  entryAnalysis,
+  accountAnalysis,
+  calculators,
+];
 ctx.showEntry = (...args) => {
   navigate('records');
   return records.showEntry(...args);
@@ -89,6 +121,12 @@ function render() {
   $('storage-hint').textContent = 'Financial records stay in this tab until saved to JSON.';
   selection.ensureDocument();
   selection.render();
+  for (const name of analysisTabs) {
+    const selected = name === activeAnalysisTab;
+    $(`analysis-tab-${name}`).setAttribute('aria-selected', String(selected));
+    $(`analysis-tab-${name}`).tabIndex = selected ? 0 : -1;
+    $(`analysis-${name}-panel`).hidden = !selected;
+  }
   for (const screen of screens) screen.render();
   for (const id of [
     'new-file',
@@ -104,8 +142,8 @@ function render() {
   document.body.classList.toggle('is-busy', status.busy);
 }
 function navigate(tab) {
-  activeTab = tab === 'records' ? 'records' : 'accounts';
-  for (const name of ['accounts', 'records']) {
+  activeTab = workspaceTabs.includes(tab) ? tab : 'accounts';
+  for (const name of workspaceTabs) {
     const selected = name === activeTab;
     $(`tab-${name}`).setAttribute('aria-selected', String(selected));
     $(`tab-${name}`).tabIndex = selected ? 0 : -1;
@@ -113,9 +151,29 @@ function navigate(tab) {
   }
   render();
 }
-for (const tab of ['accounts', 'records'])
-  $(`tab-${tab}`).addEventListener('click', () => navigate(tab));
+for (const tab of workspaceTabs) $(`tab-${tab}`).addEventListener('click', () => navigate(tab));
 document.querySelector('.workspace-tabs').addEventListener('keydown', (event) => {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault();
+  const direction = event.key === 'ArrowLeft' ? -1 : 1;
+  const index =
+    event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? workspaceTabs.length - 1
+        : (workspaceTabs.indexOf(activeTab) + direction + workspaceTabs.length) %
+          workspaceTabs.length;
+  const tab = workspaceTabs[index];
+  navigate(tab);
+  $(`tab-${tab}`).focus();
+});
+function selectAnalysisTab(tab) {
+  activeAnalysisTab = analysisTabs.includes(tab) ? tab : 'accounts';
+  render();
+}
+for (const tab of analysisTabs)
+  $(`analysis-tab-${tab}`).addEventListener('click', () => selectAnalysisTab(tab));
+document.querySelector('.analysis-tabs').addEventListener('keydown', (event) => {
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
   event.preventDefault();
   const tab =
@@ -123,12 +181,16 @@ document.querySelector('.workspace-tabs').addEventListener('keydown', (event) =>
       ? 'accounts'
       : event.key === 'End'
         ? 'records'
-        : activeTab === 'accounts'
+        : activeAnalysisTab === 'accounts'
           ? 'records'
           : 'accounts';
-  navigate(tab);
-  $(`tab-${tab}`).focus();
+  selectAnalysisTab(tab);
+  $(`analysis-tab-${tab}`).focus();
 });
+function resetScreens() {
+  activeAnalysisTab = 'accounts';
+  for (const screen of screens) screen.reset?.();
+}
 function confirmDiscard() {
   if (!session.getStatus().dirty) return Promise.resolve(true);
   return new Promise((resolve) => {
@@ -155,7 +217,7 @@ async function acceptFile(file, handle = null) {
   ctx.accountId = '';
   session.replace(candidate, { fileName: file.name, handle, message: 'File opened' });
   selection.reset();
-  for (const screen of screens) screen.reset?.();
+  resetScreens();
   navigate('accounts');
   ctx.notify('');
 }
@@ -177,7 +239,7 @@ $('new-file').addEventListener('click', async () => {
   ctx.accountId = '';
   session.replace(createDocument(), { message: 'Not saved' });
   selection.reset();
-  for (const screen of screens) screen.reset?.();
+  resetScreens();
   navigate('accounts');
   ctx.notify('');
 });

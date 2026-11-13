@@ -95,7 +95,7 @@ export function createSelectionPresets(ctx) {
       )
       .join(
         '',
-      )}</select><button id="analysis-preset-apply" class="button button-outline" type="button"${chosen ? '' : ' disabled'}>Apply</button><button id="analysis-preset-new" class="button button-outline" type="button">Save current…</button><button id="analysis-preset-manage" class="button button-quiet" type="button"${chosen ? '' : ' disabled'}>Manage…</button></div><p class="analysis-presets-help">Save checked entry selections for future analysis. Applying a preset does not change your financial records.</p>`;
+      )}</select><button id="analysis-preset-apply" class="button button-outline" type="button"${chosen ? '' : ' disabled'}>Apply</button><button id="analysis-preset-new" class="button button-outline" type="button">Save current…</button><button id="analysis-preset-manage" class="button button-quiet" type="button"${chosen ? '' : ' disabled'}>Manage…</button></div><p class="analysis-presets-help">Save checked entry selections for entry analysis. Applying a preset does not change your financial records.</p>`;
     $('analysis-preset-select').addEventListener('change', (event) => {
       chosen = event.target.value;
       render();

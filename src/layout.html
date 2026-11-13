@@ -93,6 +93,28 @@
         >
           Income &amp; Expenses
         </button>
+        <button
+          id="tab-analysis"
+          class="workspace-tab"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="analysis-panel"
+          tabindex="-1"
+        >
+          Analysis
+        </button>
+        <button
+          id="tab-calculators"
+          class="workspace-tab"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="calculators-panel"
+          tabindex="-1"
+        >
+          Calculators
+        </button>
       </div>
       <section
         id="accounts-panel"
@@ -174,6 +196,61 @@
           <div id="selection-presets-content"></div>
         </section>
         <div id="records-content"></div>
+      </section>
+      <section
+        id="analysis-panel"
+        class="workspace-panel"
+        role="tabpanel"
+        aria-labelledby="tab-analysis"
+        hidden
+      >
+        <div class="calculator-tabs analysis-tabs" role="tablist" aria-label="Analysis section">
+          <button
+            id="analysis-tab-accounts"
+            class="calculator-tab analysis-tab"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            aria-controls="analysis-accounts-panel"
+          >
+            Accounts &amp; Assets
+          </button>
+          <button
+            id="analysis-tab-records"
+            class="calculator-tab analysis-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="analysis-records-panel"
+            tabindex="-1"
+          >
+            Income &amp; Expenses
+          </button>
+        </div>
+        <section
+          id="analysis-accounts-panel"
+          role="tabpanel"
+          aria-labelledby="analysis-tab-accounts"
+        >
+          <div id="account-analysis-content"></div>
+        </section>
+        <section
+          id="analysis-records-panel"
+          role="tabpanel"
+          aria-labelledby="analysis-tab-records"
+          hidden
+        >
+          <div id="entry-analysis-content"></div>
+        </section>
+      </section>
+      <section
+        id="calculators-panel"
+        class="workspace-panel"
+        role="tabpanel"
+        aria-labelledby="tab-calculators"
+        hidden
+      >
+        <div id="calculator-workspace-content"></div>
       </section>
       <footer class="workspace-footer">
         <p>
