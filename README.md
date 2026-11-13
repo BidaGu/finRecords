@@ -12,6 +12,8 @@ A local app for recording accounts, income, expenses, transfers, credit-card sta
 4. In **Accounts & Assets**, add your accounts. Accounts start at zero; record the activity that explains their balances.
 5. In **Income & Expenses**, create categories and add entries. Use **Transfers** to move money between accounts, including credit-card repayments.
 
+To try the app, download the [example JSON data](https://github.com/BidaGu/finRecords/blob/HEAD/examples/demo-recording-3-years-800.json), then choose **Open JSON**. The example contains fictional data for exploring the tool.
+
 Activity dates describe when income or expenses happened. Posting dates determine account balances. Credit-card purchases are Expenses while repayments are Transfers.
 
 ## Save your records
