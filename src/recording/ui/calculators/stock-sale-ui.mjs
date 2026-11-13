@@ -189,12 +189,18 @@ export function createStockSaleUI({ root, isActive }) {
     const id = (field) => lotInputId(lot.id, field),
       label = (field, text) =>
         `<label class="stock-sale-cell-label" for="${id(field)}">${text}</label>`;
-    return `<tr class="stock-sale-lot" data-stock-sale-lot="${lot.id}"><th scope="row" class="stock-sale-label-cell"><div class="stock-sale-label-input"><span class="stock-sale-row-number">${index + 1}</span><div>${label('label', 'Lot label (optional)')}<input id="${id('label')}" name="${lot.id}-label" type="text" autocomplete="off" maxlength="100" aria-label="Lot ${index + 1}: label (optional)" value="${esc(lot.label)}"></div></div></th><td>${label('held', 'Shares held')}<input id="${id('held')}" name="${lot.id}-held" type="text" inputmode="decimal" autocomplete="off" placeholder="0" required aria-label="Lot ${index + 1}: shares held" value="${esc(lot.held)}"></td><td>${label('cost', 'Cost basis per share ($)')}<input id="${id('cost')}" name="${lot.id}-cost" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00" required aria-label="Lot ${index + 1}: cost basis per share ($)" value="${esc(lot.cost)}"></td><td>${label('sell', 'Shares to sell')}<input id="${id('sell')}" name="${lot.id}-sell" type="text" inputmode="decimal" autocomplete="off" placeholder="0" required aria-label="Lot ${index + 1}: shares to sell" value="${esc(lot.sell)}"></td><td class="stock-sale-actions-cell"><div class="stock-sale-lot-actions"><button type="button" class="button button-outline" id="${id('all')}" aria-label="Sell all shares from lot ${index + 1}">Sell all</button><button type="button" class="button button-outline" id="${id('remove')}" aria-label="Remove lot ${index + 1}"${state.draft.lots.length === 1 ? ' disabled' : ''}>Remove lot</button></div></td></tr>`;
+    return `<tr class="stock-sale-lot" data-stock-sale-lot="${lot.id}"><th scope="row" class="stock-sale-label-cell"><div class="stock-sale-label-input"><span class="stock-sale-row-number">${index + 1}</span><div>${label('label', 'Lot label (optional)')}<input id="${id('label')}" name="${lot.id}-label" type="text" autocomplete="off" maxlength="100" aria-label="Lot ${index + 1}: label (optional)" value="${esc(lot.label)}"></div></div></th><td>${label('held', 'Shares held')}<input id="${id('held')}" name="${lot.id}-held" type="text" inputmode="decimal" autocomplete="off" placeholder="0" required aria-label="Lot ${index + 1}: shares held" value="${esc(lot.held)}"></td><td>${label('cost', 'Cost basis per share ($)')}<input id="${id('cost')}" name="${lot.id}-cost" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00" required aria-label="Lot ${index + 1}: cost basis per share ($)" value="${esc(lot.cost)}"></td><td>${label('sell', 'Shares to sell')}<input id="${id('sell')}" name="${lot.id}-sell" type="text" inputmode="decimal" autocomplete="off" placeholder="0" required aria-label="Lot ${index + 1}: shares to sell" value="${esc(lot.sell)}"></td><td class="stock-sale-actions-cell"><div class="stock-sale-lot-actions"><button type="button" class="button button-outline" id="${id('all')}" aria-label="Sell all shares from lot ${index + 1}">Sell all</button><button type="button" class="button button-outline" id="${id('keep')}" aria-label="Keep all shares in lot ${index + 1}">Keep all</button><button type="button" class="button button-outline" id="${id('remove')}" aria-label="Remove lot ${index + 1}"${state.draft.lots.length === 1 ? ' disabled' : ''}>Remove lot</button></div></td></tr>`;
   }
   function sellAll(lotId = null) {
     captureDraft();
     for (const lot of state.draft.lots)
       if (lotId === null || lot.id === lotId) $(lotInputId(lot.id, 'sell')).value = lot.held;
+    captureDraft();
+    renderResults();
+  }
+  function keepAll(lotId) {
+    captureDraft();
+    $(lotInputId(lotId, 'sell')).value = '0';
     captureDraft();
     renderResults();
   }
@@ -273,6 +279,7 @@ export function createStockSaleUI({ root, isActive }) {
     });
     for (const [index, lot] of state.draft.lots.entries()) {
       $(lotInputId(lot.id, 'all')).addEventListener('click', () => sellAll(lot.id));
+      $(lotInputId(lot.id, 'keep')).addEventListener('click', () => keepAll(lot.id));
       $(lotInputId(lot.id, 'remove')).addEventListener('click', () => {
         captureDraft();
         if (state.draft.lots.length === 1) return;

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Finance Records — a local, file-based recording system." />
     <meta name="theme-color" content="#252941" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-DW65lZrH65waxWtJSOqq+XSTcatfCLnltmstOO8I9/Y='; style-src 'sha256-hchPsQt6ZxJvr31EugvzbuxwxBBpgQy3PoDN4ZGT51g='; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-zcF/uWMuBFrfK2sOcauyitGFgx9kMyXqU2c0A63QW2c='; style-src 'sha256-bQnzZMlk90OVsRbDRejot89mIRfpqi+Nhd0JVLIBQfw='; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <title>Finance Records</title>
     <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCI+PHJlY3QgeD0iMiIgeT0iMiIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjQ0IiByeD0iMTIiIGZpbGw9IiM1MTQ4YjUiLz48cGF0aCBkPSJNMTQgMzVWMTNoMjNNMTQgMjRoMTdNMjMgMzVoMTQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZmZmZiIgc3Ryb2tlLXdpZHRoPSIyLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPgo=" type="image/svg+xml" />
     <style>:root {
@@ -275,6 +275,11 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+.github-link svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
 }
 .currency-label {
   font-size: 11px;
@@ -1223,6 +1228,9 @@ dialog::backdrop {
   .header-actions .button svg {
     width: 14px;
     height: 14px;
+  }
+  .github-label {
+    display: none;
   }
   .workspace {
     padding: 19px 16px;
@@ -7288,15 +7296,27 @@ dialog::backdrop {
     max-height: min(280px, 36dvh);
   }
 }
+@media (max-width: 480px) {
+  .recording-page .brand-mark {
+    display: none;
+  }
+}
 @media (max-width: 380px) {
   .recording-page .brand-name {
-    font-size: 18px;
+    font-size: 16px;
   }
   .recording-page .brand-mark {
     display: none;
   }
   .recording-page .header-inner {
-    gap: 8px;
+    gap: 4px;
+  }
+  .recording-page .header-actions {
+    gap: 2px;
+  }
+  .recording-page .header-actions .button {
+    padding-inline: 4px;
+    font-size: 10px;
   }
   .recording-page .account-tab {
     padding-inline: 13px;
@@ -8537,7 +8557,7 @@ dialog::backdrop {
   white-space: normal;
 }
 .recording-page #stock-sale-form .stock-sale-input-table thead th:first-child {
-  width: 26%;
+  width: auto;
 }
 .recording-page #stock-sale-form .stock-sale-input-table thead th:nth-child(2),
 .recording-page #stock-sale-form .stock-sale-input-table thead th:nth-child(4) {
@@ -8547,7 +8567,7 @@ dialog::backdrop {
   width: 18%;
 }
 .recording-page #stock-sale-form .stock-sale-input-table thead th:last-child {
-  width: 24%;
+  width: 192px;
 }
 .recording-page #stock-sale-form .stock-sale-input-table tbody tr,
 .recording-page #stock-sale-form .stock-sale-input-table tbody th,
@@ -8780,6 +8800,22 @@ dialog::backdrop {
           ><span class="header-divider" aria-hidden="true"></span
           ><button id="new-file" class="button button-quiet" type="button">New file</button
           ><button id="open-file" class="button button-outline" type="button">Open JSON</button>
+          <a
+            id="github-link"
+            class="button button-outline github-link"
+            href="https://github.com/BidaGu/finRecords"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="GitHub repository (opens in a new tab)"
+            title="GitHub repository (opens in a new tab)"
+          >
+            <span class="github-label">GitHub</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M15 3h6v6M21 3l-9 9M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+              />
+            </svg>
+          </a>
         </div>
       </div>
     </header>
@@ -14329,12 +14365,18 @@ dialog::backdrop {
     }
     function lotHTML(lot, index) {
       const id = (field2) => lotInputId(lot.id, field2), label = (field2, text2) => `<label class="stock-sale-cell-label" for="${id(field2)}">${text2}</label>`;
-      return `<tr class="stock-sale-lot" data-stock-sale-lot="${lot.id}"><th scope="row" class="stock-sale-label-cell"><div class="stock-sale-label-input"><span class="stock-sale-row-number">${index + 1}</span><div>${label("label", "Lot label (optional)")}<input id="${id("label")}" name="${lot.id}-label" type="text" autocomplete="off" maxlength="100" aria-label="Lot ${index + 1}: label (optional)" value="${esc(lot.label)}"></div></div></th><td>${label("held", "Shares held")}<input id="${id("held")}" name="${lot.id}-held" type="text" inputmode="decimal" autocomplete="off" placeholder="0" required aria-label="Lot ${index + 1}: shares held" value="${esc(lot.held)}"></td><td>${label("cost", "Cost basis per share ($)")}<input id="${id("cost")}" name="${lot.id}-cost" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00" required aria-label="Lot ${index + 1}: cost basis per share ($)" value="${esc(lot.cost)}"></td><td>${label("sell", "Shares to sell")}<input id="${id("sell")}" name="${lot.id}-sell" type="text" inputmode="decimal" autocomplete="off" placeholder="0" required aria-label="Lot ${index + 1}: shares to sell" value="${esc(lot.sell)}"></td><td class="stock-sale-actions-cell"><div class="stock-sale-lot-actions"><button type="button" class="button button-outline" id="${id("all")}" aria-label="Sell all shares from lot ${index + 1}">Sell all</button><button type="button" class="button button-outline" id="${id("remove")}" aria-label="Remove lot ${index + 1}"${state.draft.lots.length === 1 ? " disabled" : ""}>Remove lot</button></div></td></tr>`;
+      return `<tr class="stock-sale-lot" data-stock-sale-lot="${lot.id}"><th scope="row" class="stock-sale-label-cell"><div class="stock-sale-label-input"><span class="stock-sale-row-number">${index + 1}</span><div>${label("label", "Lot label (optional)")}<input id="${id("label")}" name="${lot.id}-label" type="text" autocomplete="off" maxlength="100" aria-label="Lot ${index + 1}: label (optional)" value="${esc(lot.label)}"></div></div></th><td>${label("held", "Shares held")}<input id="${id("held")}" name="${lot.id}-held" type="text" inputmode="decimal" autocomplete="off" placeholder="0" required aria-label="Lot ${index + 1}: shares held" value="${esc(lot.held)}"></td><td>${label("cost", "Cost basis per share ($)")}<input id="${id("cost")}" name="${lot.id}-cost" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00" required aria-label="Lot ${index + 1}: cost basis per share ($)" value="${esc(lot.cost)}"></td><td>${label("sell", "Shares to sell")}<input id="${id("sell")}" name="${lot.id}-sell" type="text" inputmode="decimal" autocomplete="off" placeholder="0" required aria-label="Lot ${index + 1}: shares to sell" value="${esc(lot.sell)}"></td><td class="stock-sale-actions-cell"><div class="stock-sale-lot-actions"><button type="button" class="button button-outline" id="${id("all")}" aria-label="Sell all shares from lot ${index + 1}">Sell all</button><button type="button" class="button button-outline" id="${id("keep")}" aria-label="Keep all shares in lot ${index + 1}">Keep all</button><button type="button" class="button button-outline" id="${id("remove")}" aria-label="Remove lot ${index + 1}"${state.draft.lots.length === 1 ? " disabled" : ""}>Remove lot</button></div></td></tr>`;
     }
     function sellAll(lotId = null) {
       captureDraft();
       for (const lot of state.draft.lots)
         if (lotId === null || lot.id === lotId) $3(lotInputId(lot.id, "sell")).value = lot.held;
+      captureDraft();
+      renderResults();
+    }
+    function keepAll(lotId) {
+      captureDraft();
+      $3(lotInputId(lotId, "sell")).value = "0";
       captureDraft();
       renderResults();
     }
@@ -14405,6 +14447,7 @@ dialog::backdrop {
       });
       for (const [index, lot] of state.draft.lots.entries()) {
         $3(lotInputId(lot.id, "all")).addEventListener("click", () => sellAll(lot.id));
+        $3(lotInputId(lot.id, "keep")).addEventListener("click", () => keepAll(lot.id));
         $3(lotInputId(lot.id, "remove")).addEventListener("click", () => {
           captureDraft();
           if (state.draft.lots.length === 1) return;

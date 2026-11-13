@@ -266,6 +266,11 @@ textarea::placeholder {
   align-items: center;
   gap: 10px;
 }
+.github-link svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
 .currency-label {
   font-size: 11px;
   font-weight: 650;
@@ -1213,6 +1218,9 @@ dialog::backdrop {
   .header-actions .button svg {
     width: 14px;
     height: 14px;
+  }
+  .github-label {
+    display: none;
   }
   .workspace {
     padding: 19px 16px;
@@ -7278,15 +7286,27 @@ dialog::backdrop {
     max-height: min(280px, 36dvh);
   }
 }
+@media (max-width: 480px) {
+  .recording-page .brand-mark {
+    display: none;
+  }
+}
 @media (max-width: 380px) {
   .recording-page .brand-name {
-    font-size: 18px;
+    font-size: 16px;
   }
   .recording-page .brand-mark {
     display: none;
   }
   .recording-page .header-inner {
-    gap: 8px;
+    gap: 4px;
+  }
+  .recording-page .header-actions {
+    gap: 2px;
+  }
+  .recording-page .header-actions .button {
+    padding-inline: 4px;
+    font-size: 10px;
   }
   .recording-page .account-tab {
     padding-inline: 13px;
@@ -8527,7 +8547,7 @@ dialog::backdrop {
   white-space: normal;
 }
 .recording-page #stock-sale-form .stock-sale-input-table thead th:first-child {
-  width: 26%;
+  width: auto;
 }
 .recording-page #stock-sale-form .stock-sale-input-table thead th:nth-child(2),
 .recording-page #stock-sale-form .stock-sale-input-table thead th:nth-child(4) {
@@ -8537,7 +8557,7 @@ dialog::backdrop {
   width: 18%;
 }
 .recording-page #stock-sale-form .stock-sale-input-table thead th:last-child {
-  width: 24%;
+  width: 192px;
 }
 .recording-page #stock-sale-form .stock-sale-input-table tbody tr,
 .recording-page #stock-sale-form .stock-sale-input-table tbody th,
