@@ -31,7 +31,9 @@ const ENTRY_KEYS = [
 ];
 const CATEGORY_KEYS = ['id', 'kind', 'label', 'createdAt', 'updatedAt'];
 function kind(value) {
-  assert(['gain', 'expense'].includes(value), 'Choose Gain or Expense.');
+  assert(['gain', 'expense'].includes(value), 'Choose Gain or Expense.', {
+    code: 'errors.core.records.choose-gain-or-expense',
+  });
   return value;
 }
 export function normalizeCategory(value, previous) {
@@ -66,7 +68,9 @@ export function validateRecords(ledger) {
     validateMetadata(category);
     const normalized = normalizeCategory(category, category);
     const label = `${normalized.kind}:${normalized.label.toLocaleLowerCase('en-US')}`;
-    assert(!labels.has(label), 'Category names must be unique within their type.');
+    assert(!labels.has(label), 'Category names must be unique within their type.', {
+      code: 'errors.core.records.category-names-must-be-unique-within-their-type',
+    });
     labels.add(label);
     categories.set(category.id, category);
   }
@@ -77,6 +81,9 @@ export function validateRecords(ledger) {
     assert(
       category && category.kind === entry.kind,
       'An entry must use an existing category of the same Gain/Expense type.',
+      {
+        code: 'errors.core.records.an-entry-must-use-an-existing-category-of-the-same-gain-expense-type',
+      },
     );
   }
   assertArray(ledger.entryOrder, 'Entry order');
@@ -85,6 +92,7 @@ export function validateRecords(ledger) {
       new Set(ledger.entryOrder).size === ledger.entries.length &&
       ledger.entryOrder.every((id) => ledger.entries.some((entry) => entry.id === id)),
     'Entry order must contain every entry ID exactly once.',
+    { code: 'errors.core.records.entry-order-must-contain-every-entry-id-exactly-once' },
   );
   return ledger;
 }
@@ -107,13 +115,17 @@ export function saveCategory(ledger, value) {
 export function deleteCategory(ledger, id, replacementId) {
   const next = clone(ledger);
   const category = next.categories.find((item) => item.id === id);
-  assert(category, 'Choose an existing category.');
+  assert(category, 'Choose an existing category.', {
+    code: 'errors.core.records.choose-an-existing-category',
+  });
   const entries = next.entries.filter((item) => item.categoryId === id);
   if (entries.length) {
     const replacement = next.categories.find(
       (item) => item.id === replacementId && item.id !== id && item.kind === category.kind,
     );
-    assert(replacement, 'Choose a replacement category of the same type.');
+    assert(replacement, 'Choose a replacement category of the same type.', {
+      code: 'errors.core.records.choose-a-replacement-category-of-the-same-type',
+    });
     next.entries = next.entries.map((item) =>
       item.categoryId === id
         ? normalizeEntry({ ...item, categoryId: replacementId, updatedAt: undefined }, item)
@@ -137,6 +149,7 @@ export function deleteEntry(ledger, id) {
   assert(
     ledger.entries.some((item) => item.id === id),
     'Choose an existing entry.',
+    { code: 'errors.core.records.choose-an-existing-entry' },
   );
   const next = clone(ledger);
   next.entries = next.entries.filter((item) => item.id !== id);

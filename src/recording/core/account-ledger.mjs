@@ -2,7 +2,9 @@ import { assert, assertDate, cents, exact, dayBefore, nextDay } from './values.m
 
 function accountFor(ledger, id) {
   const account = ledger.accounts.find((item) => item.id === id);
-  assert(account, 'Choose an existing account.');
+  assert(account, 'Choose an existing account.', {
+    code: 'errors.core.account-ledger.choose-an-existing-account',
+  });
   return account;
 }
 function postedMovements(ledger, accountId) {
@@ -92,16 +94,21 @@ export function accountLedger(ledger, accountId, options = {}) {
   assert(
     options && typeof options === 'object' && !Array.isArray(options),
     'Choose a valid balance date range.',
+    { code: 'errors.core.account-ledger.choose-a-valid-balance-date-range' },
   );
   const from = options.from || account.openedDate;
   const through = options.through || latestAccountDate(ledger, accountId);
   assertDate(from, 'From date');
   assertDate(through, 'Through date');
-  assert(from <= through, 'From date must not be after Through date.');
+  assert(from <= through, 'From date must not be after Through date.', {
+    code: 'errors.core.account-ledger.from-date-must-not-be-after-through-date',
+  });
   const dayCount =
     Math.round((Date.parse(`${through}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000) +
     1;
-  assert(dayCount <= 50000, 'Choose an account review range shorter than 50,000 days.');
+  assert(dayCount <= 50000, 'Choose an account review range shorter than 50,000 days.', {
+    code: 'errors.core.account-ledger.choose-an-account-review-range-shorter-than-50-000-days',
+  });
   const openingBalanceCents = balanceAt(ledger, accountId, dayBefore(from));
   const byDate = new Map();
   for (const row of postedMovements(ledger, accountId))

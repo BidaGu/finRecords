@@ -2,6 +2,7 @@ import {
   RECORDING_FORMAT,
   RECORDING_VERSION,
   assert,
+  assertCurrency,
   clone,
   uid,
   now,
@@ -39,14 +40,15 @@ const arrays = [
   'statements',
   'entryOrder',
 ];
-export function createDocument() {
+export function createDocument({ currency = 'USD' } = {}) {
+  assertCurrency(currency);
   const stamp = now();
   return {
     format: RECORDING_FORMAT,
     version: RECORDING_VERSION,
     ledger: {
       id: uid('ledger'),
-      currency: 'USD',
+      currency,
       createdAt: stamp,
       updatedAt: stamp,
       ...Object.fromEntries(arrays.map((key) => [key, []])),
@@ -60,28 +62,39 @@ export function validateSettings(settings, ledger) {
   assert(
     ['activity', 'custom'].includes(settings.recordOrder ?? 'activity'),
     'Choose a valid record order.',
+    { code: 'errors.services.editing-coordinator.choose-a-valid-record-order' },
   );
-  assert(settings.analysisPresets.length <= 100, 'Use at most 100 analysis presets.');
+  assert(settings.analysisPresets.length <= 100, 'Use at most 100 analysis presets.', {
+    code: 'errors.services.editing-coordinator.use-at-most-100-analysis-presets',
+  });
   const ids = new Set(),
     names = new Set(),
     entries = new Set(ledger.entries.map((entry) => entry.id));
   for (const preset of settings.analysisPresets) {
     allowedKeys(preset, ['id', 'name', 'entryIds'], 'Analysis preset');
     assertId(preset.id, 'Preset ID');
-    assert(!ids.has(preset.id), 'Preset IDs must be unique.');
+    assert(!ids.has(preset.id), 'Preset IDs must be unique.', {
+      code: 'errors.services.editing-coordinator.preset-ids-must-be-unique',
+    });
     ids.add(preset.id);
     assert(
       typeof preset.name === 'string' && preset.name.trim().length > 0 && preset.name.length <= 80,
       'Preset name must contain 1–80 characters.',
+      { code: 'errors.services.editing-coordinator.preset-name-must-contain-1-80-characters' },
     );
     const key = preset.name.trim().toLocaleLowerCase('en-US');
-    assert(!names.has(key), 'Preset names must be unique.');
+    assert(!names.has(key), 'Preset names must be unique.', {
+      code: 'errors.services.editing-coordinator.preset-names-must-be-unique',
+    });
     names.add(key);
     assertArray(preset.entryIds, 'Preset entry IDs');
     assert(
       new Set(preset.entryIds).size === preset.entryIds.length &&
         preset.entryIds.every((id) => entries.has(id)),
       'A preset must reference existing entries once each.',
+      {
+        code: 'errors.services.editing-coordinator.a-preset-must-reference-existing-entries-once-each',
+      },
     );
   }
   return settings;
@@ -90,30 +103,40 @@ export function validateDocument(input) {
   assert(
     input?.format === RECORDING_FORMAT && input.version === RECORDING_VERSION,
     'Open a supported Finance Records JSON file. Older formats are not converted automatically.',
+    {
+      code: 'errors.services.editing-coordinator.open-a-supported-finance-records-json-file-older-formats-are-not-converted-automatic',
+    },
   );
   allowedKeys(input, ['format', 'version', 'ledger', 'settings'], 'Document');
   const doc = clone(input),
     ledger = doc.ledger;
   allowedKeys(ledger, ['id', 'currency', 'createdAt', 'updatedAt', ...arrays], 'Financial ledger');
   validateMetadata(ledger);
-  assert(ledger.currency === 'USD', 'This app supports USD only.');
+  assertCurrency(ledger.currency);
   for (const key of arrays) assertArray(ledger[key], key);
   validateAccounts(ledger);
   validateRecords(ledger);
   validateTransfers(ledger);
   const accountIds = new Set(ledger.accounts.map((account) => account.id));
   for (const entry of ledger.entries) {
-    assert(accountIds.has(entry.accountId), 'Every entry must link to an existing account.');
+    assert(accountIds.has(entry.accountId), 'Every entry must link to an existing account.', {
+      code: 'errors.services.editing-coordinator.every-entry-must-link-to-an-existing-account',
+    });
     const account = ledger.accounts.find((item) => item.id === entry.accountId);
     assert(
       entry.postedDate >= account.openedDate,
       'An entry posting date cannot precede its account opening date.',
+      {
+        code: 'errors.services.editing-coordinator.an-entry-posting-date-cannot-precede-its-account-opening-date',
+      },
     );
   }
   const allIds = new Set();
   for (const key of arrays.filter((key) => key !== 'entryOrder'))
     for (const item of ledger[key]) {
-      assert(!allIds.has(item.id), 'Financial record IDs must be unique across the ledger.');
+      assert(!allIds.has(item.id), 'Financial record IDs must be unique across the ledger.', {
+        code: 'errors.services.editing-coordinator.financial-record-ids-must-be-unique-across-the-ledger',
+      });
       allIds.add(item.id);
     }
   validateAccountBalances(ledger);
@@ -134,7 +157,9 @@ function substantive(value) {
 }
 export function applyCommand(input, command) {
   const current = validateDocument(input);
-  assert(command && typeof command.type === 'string', 'Choose an edit operation.');
+  assert(command && typeof command.type === 'string', 'Choose an edit operation.', {
+    code: 'errors.services.editing-coordinator.choose-an-edit-operation',
+  });
   let ledger = current.ledger;
   const value = command.value;
   switch (command.type) {
@@ -158,7 +183,9 @@ export function applyCommand(input, command) {
       break;
     case 'entry.copy': {
       const original = ledger.entries.find((entry) => entry.id === command.id);
-      assert(original, 'Choose an existing entry to duplicate.');
+      assert(original, 'Choose an existing entry to duplicate.', {
+        code: 'errors.services.editing-coordinator.choose-an-existing-entry-to-duplicate',
+      });
       const copy = { ...original, ...value, id: uid('entry'), createdAt: now(), updatedAt: now() };
       ledger = saveEntry(ledger, copy);
       const order = ledger.entryOrder.filter((id) => id !== copy.id);
@@ -172,6 +199,7 @@ export function applyCommand(input, command) {
       assert(
         command.ids.every((id) => ledger.entries.some((entry) => entry.id === id)),
         'Choose existing entries.',
+        { code: 'errors.services.editing-coordinator.choose-existing-entries' },
       );
       for (const id of command.ids)
         ledger = saveEntry(ledger, {
@@ -214,7 +242,9 @@ export function applyCommand(input, command) {
       ledger = deleteDisposal(ledger, command.id);
       break;
     default:
-      assert(false, 'Unknown recording operation.');
+      assert(false, 'Unknown recording operation.', {
+        code: 'errors.services.editing-coordinator.unknown-recording-operation',
+      });
   }
   // Validate the whole candidate: references retained by the old account/activity
   // remain visible even when an entry is reassigned or removed.

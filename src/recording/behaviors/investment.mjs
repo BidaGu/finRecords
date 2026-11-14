@@ -54,7 +54,9 @@ const DISPOSAL_KEYS = [
 ];
 function investmentAccount(ledger, id) {
   const account = ledger.accounts.find((item) => item.id === id);
-  assert(account?.kind === 'investment', 'Choose an existing investment account.');
+  assert(account?.kind === 'investment', 'Choose an existing investment account.', {
+    code: 'errors.behaviors.investment.choose-an-existing-investment-account',
+  });
   return account;
 }
 function resultOf(holding, activity) {
@@ -73,6 +75,7 @@ export function normalizePurchase(value, previous) {
   assert(
     ['treasury_bill', 'asset'].includes(value.instrument),
     'Choose Treasury bill or a generic holding.',
+    { code: 'errors.behaviors.investment.choose-treasury-bill-or-a-generic-holding' },
   );
   const holding = {
     ...metadata(value, previous, 'holding'),
@@ -89,6 +92,7 @@ export function normalizePurchase(value, previous) {
     assert(
       typeof value.quantity === 'number' && Number.isFinite(value.quantity) && value.quantity > 0,
       'Quantity must be a positive number.',
+      { code: 'errors.behaviors.investment.quantity-must-be-a-positive-number' },
     );
     holding.quantity = value.quantity;
   }
@@ -105,14 +109,21 @@ export function normalizePurchase(value, previous) {
         Object.hasOwn(holding, key),
       ),
       'Treasury bill details belong on a Treasury bill holding.',
+      {
+        code: 'errors.behaviors.investment.treasury-bill-details-belong-on-a-treasury-bill-holding',
+      },
     );
   return holding;
 }
 export function normalizeDisposal(value, previous) {
   allowedKeys(value, DISPOSAL_KEYS, 'Investment activity');
-  assert(['sale', 'redemption'].includes(value.kind), 'Choose Sale or Redemption.');
+  assert(['sale', 'redemption'].includes(value.kind), 'Choose Sale or Redemption.', {
+    code: 'errors.behaviors.investment.choose-sale-or-redemption',
+  });
   const proceedsCents = cents(value.proceedsCents, 'Actual proceeds');
-  assert(proceedsCents >= 0, 'Actual proceeds cannot be negative.');
+  assert(proceedsCents >= 0, 'Actual proceeds cannot be negative.', {
+    code: 'errors.behaviors.investment.actual-proceeds-cannot-be-negative',
+  });
   const activity = {
     ...metadata(value, previous, 'disposal'),
     holdingId: assertId(value.holdingId, 'Holding ID'),
@@ -141,6 +152,9 @@ export function validateInvestments(ledger) {
     assert(
       holding.postedDate >= account.openedDate,
       'Purchase posting date cannot precede the investment account opening.',
+      {
+        code: 'errors.behaviors.investment.purchase-posting-date-cannot-precede-the-investment-account-opening',
+      },
     );
     holdings.set(holding.id, holding);
   }
@@ -148,38 +162,67 @@ export function validateInvestments(ledger) {
     validateMetadata(activity);
     normalizeDisposal(activity, activity);
     const holding = holdings.get(activity.holdingId);
-    assert(holding, 'An investment activity references a missing holding.');
+    assert(holding, 'An investment activity references a missing holding.', {
+      code: 'errors.behaviors.investment.an-investment-activity-references-a-missing-holding',
+    });
     investmentAccount(ledger, activity.accountId);
     assert(
       activity.accountId === holding.accountId,
       'An investment activity must use the same account as its holding.',
+      {
+        code: 'errors.behaviors.investment.an-investment-activity-must-use-the-same-account-as-its-holding',
+      },
     );
     assert(
       activity.postedDate >= holding.postedDate,
       'Sale/redemption posting date cannot precede its purchase posting date.',
+      {
+        code: 'errors.behaviors.investment.sale-redemption-posting-date-cannot-precede-its-purchase-posting-date',
+      },
     );
     assert(
       activity.kind !== 'redemption' || holding.instrument === 'treasury_bill',
       'Redemption is available for Treasury bills; use Sale for a generic holding.',
+      {
+        code: 'errors.behaviors.investment.redemption-is-available-for-treasury-bills-use-sale-for-a-generic-holding',
+      },
     );
-    assert(!disposed.has(holding.id), 'A full holding can be sold or redeemed only once.');
+    assert(!disposed.has(holding.id), 'A full holding can be sold or redeemed only once.', {
+      code: 'errors.behaviors.investment.a-full-holding-can-be-sold-or-redeemed-only-once',
+    });
     disposed.add(holding.id);
     const expected = resultOf(holding, activity);
     if (expected.kind === null) {
-      assert(!activity.resultEntryId, 'A zero realized result must not link a Gain or Expense.');
+      assert(!activity.resultEntryId, 'A zero realized result must not link a Gain or Expense.', {
+        code: 'errors.behaviors.investment.a-zero-realized-result-must-not-link-a-gain-or-expense',
+      });
       continue;
     }
     const entry = ledger.entries.find((item) => item.id === activity.resultEntryId);
-    assert(entry, 'The investment result needs an existing linked Gain/Expense entry.');
+    assert(entry, 'The investment result needs an existing linked Gain/Expense entry.', {
+      code: 'errors.behaviors.investment.the-investment-result-needs-an-existing-linked-gain-expense-entry',
+    });
     assert(
       entry.accountId === activity.accountId,
       'The linked investment result must use the same investment account.',
+      {
+        code: 'errors.behaviors.investment.the-linked-investment-result-must-use-the-same-investment-account',
+      },
     );
     assert(
       entry.kind === expected.kind && entry.amountCents === expected.amountCents,
       `Investment result requires a ${expected.kind === 'gain' ? 'Gain' : 'Expense'} of ${decimalCents(expected.amountCents)}; the linked entry must match exactly.`,
+      {
+        code:
+          expected.kind === 'gain'
+            ? 'errors.investment.requiredGain'
+            : 'errors.investment.requiredExpense',
+        params: { amount: decimalCents(expected.amountCents) },
+      },
     );
-    assert(!linkedEntries.has(entry.id), 'A Gain/Expense can explain only one investment result.');
+    assert(!linkedEntries.has(entry.id), 'A Gain/Expense can explain only one investment result.', {
+      code: 'errors.behaviors.investment.a-gain-expense-can-explain-only-one-investment-result',
+    });
     linkedEntries.add(entry.id);
   }
   for (const account of ledger.accounts.filter((item) => item.kind === 'investment')) {
@@ -227,6 +270,7 @@ export function deletePurchase(ledger, id) {
   assert(
     ledger.holdings.some((item) => item.id === id),
     'Choose an existing holding.',
+    { code: 'errors.behaviors.investment.choose-an-existing-holding' },
   );
   const next = clone(ledger);
   next.holdings = next.holdings.filter((item) => item.id !== id);
@@ -238,7 +282,9 @@ export function saveDisposal(ledger, value) {
   const next = clone(ledger);
   const previous = next.investmentActivities.find((item) => item.id === value.id);
   const holding = next.holdings.find((item) => item.id === value.holdingId);
-  assert(holding, 'Choose an existing holding.');
+  assert(holding, 'Choose an existing holding.', {
+    code: 'errors.behaviors.investment.choose-an-existing-holding',
+  });
   const persisted = Object.fromEntries(
     Object.entries(value).filter(([key]) => !['resultMode', 'resultEntry'].includes(key)),
   );
@@ -250,49 +296,74 @@ export function saveDisposal(ledger, value) {
     assert(
       !previous?.resultEntryId,
       'Changing this linked result to zero needs an explicit reviewed unlink correction; the entry will not be removed automatically.',
+      {
+        code: 'errors.behaviors.investment.changing-this-linked-result-to-zero-needs-an-explicit-reviewed-unlink-correction-the',
+      },
     );
-    assert(!activity.resultEntryId, 'A zero result must not select a Gain/Expense.');
+    assert(!activity.resultEntryId, 'A zero result must not select a Gain/Expense.', {
+      code: 'errors.behaviors.investment.a-zero-result-must-not-select-a-gain-expense',
+    });
     assert(
       !value.resultMode || value.resultMode === 'none',
       'A zero result needs no Gain/Expense entry.',
+      { code: 'errors.behaviors.investment.a-zero-result-needs-no-gain-expense-entry' },
     );
   } else {
     const mode =
       value.resultMode ??
       (previous?.resultEntryId ? 'existing' : activity.resultEntryId ? 'existing' : 'new');
-    assert(['new', 'existing'].includes(mode), 'Create or select the realized Gain/Expense.');
+    assert(['new', 'existing'].includes(mode), 'Create or select the realized Gain/Expense.', {
+      code: 'errors.behaviors.investment.create-or-select-the-realized-gain-expense',
+    });
     if (previous?.resultEntryId) {
       assert(
         !activity.resultEntryId || activity.resultEntryId === previous.resultEntryId,
         'Replacing a linked result requires an explicit reviewed unlink correction.',
+        {
+          code: 'errors.behaviors.investment.replacing-a-linked-result-requires-an-explicit-reviewed-unlink-correction',
+        },
       );
       activity.resultEntryId = previous.resultEntryId;
     }
     if (mode === 'existing') {
       activity.resultEntryId ??= previous?.resultEntryId;
-      assert(activity.resultEntryId, 'Select the existing realized Gain/Expense.');
+      assert(activity.resultEntryId, 'Select the existing realized Gain/Expense.', {
+        code: 'errors.behaviors.investment.select-the-existing-realized-gain-expense',
+      });
     } else {
       const currentEntry = previous?.resultEntryId
         ? next.entries.find((item) => item.id === previous.resultEntryId)
         : undefined;
       const draft = value.resultEntry;
-      assert(draft && typeof draft === 'object', 'Complete the Gain/Expense fields in this form.');
+      assert(draft && typeof draft === 'object', 'Complete the Gain/Expense fields in this form.', {
+        code: 'errors.behaviors.investment.complete-the-gain-expense-fields-in-this-form',
+      });
       if (currentEntry)
         assert(
           !draft.id || draft.id === currentEntry.id,
           'Keep the stable ID of the existing realized-result entry.',
+          {
+            code: 'errors.behaviors.investment.keep-the-stable-id-of-the-existing-realized-result-entry',
+          },
         );
       assert(
         draft.kind === undefined || draft.kind === expected.kind,
         'The result entry type must match the investment result.',
+        {
+          code: 'errors.behaviors.investment.the-result-entry-type-must-match-the-investment-result',
+        },
       );
       assert(
         draft.accountId === undefined || draft.accountId === activity.accountId,
         'The result entry must use the investment account.',
+        { code: 'errors.behaviors.investment.the-result-entry-must-use-the-investment-account' },
       );
       assert(
         draft.amountCents === undefined || draft.amountCents === expected.amountCents,
         'The result entry amount must match the investment result.',
+        {
+          code: 'errors.behaviors.investment.the-result-entry-amount-must-match-the-investment-result',
+        },
       );
       const entry = normalizeEntry(
         {
@@ -315,10 +386,15 @@ export function saveDisposal(ledger, value) {
 }
 export function deleteDisposal(ledger, id) {
   const activity = ledger.investmentActivities.find((item) => item.id === id);
-  assert(activity, 'Choose an existing investment activity.');
+  assert(activity, 'Choose an existing investment activity.', {
+    code: 'errors.behaviors.investment.choose-an-existing-investment-activity',
+  });
   assert(
     !activity.resultEntryId,
     'This activity has a linked result. Its removal needs an explicit reviewed correction; no Gain/Expense will be deleted automatically.',
+    {
+      code: 'errors.behaviors.investment.this-activity-has-a-linked-result-its-removal-needs-an-explicit-reviewed-correction-',
+    },
   );
   const next = clone(ledger);
   next.investmentActivities = next.investmentActivities.filter((item) => item.id !== id);

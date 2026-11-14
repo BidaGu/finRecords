@@ -31,7 +31,9 @@ export function normalizeTransfer(value, previous) {
   allowedKeys(value, KEYS, 'Transfer');
   const sourceAccountId = assertId(value.sourceAccountId, 'Source account ID');
   const targetAccountId = assertId(value.targetAccountId, 'Destination account ID');
-  assert(sourceAccountId !== targetAccountId, 'Choose two different accounts for a transfer.');
+  assert(sourceAccountId !== targetAccountId, 'Choose two different accounts for a transfer.', {
+    code: 'errors.core.transfers.choose-two-different-accounts-for-a-transfer',
+  });
   const result = {
     ...metadata(value, previous, 'transfer'),
     sourceAccountId,
@@ -51,6 +53,7 @@ export function normalizeTransfer(value, previous) {
   assert(
     !result.activityDateUnconfirmed || result.activityDate,
     'An unconfirmed activity date still needs a real activity date.',
+    { code: 'errors.core.transfers.an-unconfirmed-activity-date-still-needs-a-real-activity-date' },
   );
   return result;
 }
@@ -62,14 +65,22 @@ export function validateTransfers(ledger) {
     normalizeTransfer(transfer, transfer);
     const source = accounts.get(transfer.sourceAccountId);
     const target = accounts.get(transfer.targetAccountId);
-    assert(source && target, 'A transfer must reference two existing accounts.');
+    assert(source && target, 'A transfer must reference two existing accounts.', {
+      code: 'errors.core.transfers.a-transfer-must-reference-two-existing-accounts',
+    });
     assert(
       transfer.sourcePostedDate >= source.openedDate,
       'Source posting date cannot precede the source account opening.',
+      {
+        code: 'errors.core.transfers.source-posting-date-cannot-precede-the-source-account-opening',
+      },
     );
     assert(
       transfer.targetPostedDate >= target.openedDate,
       'Destination posting date cannot precede the destination account opening.',
+      {
+        code: 'errors.core.transfers.destination-posting-date-cannot-precede-the-destination-account-opening',
+      },
     );
   }
   return ledger;
@@ -85,6 +96,7 @@ export function deleteTransfer(ledger, id) {
   assert(
     ledger.transfers.some((item) => item.id === id),
     'Choose an existing transfer.',
+    { code: 'errors.core.transfers.choose-an-existing-transfer' },
   );
   const next = clone(ledger);
   next.transfers = next.transfers.filter((item) => item.id !== id);

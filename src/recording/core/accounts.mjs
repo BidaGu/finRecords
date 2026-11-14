@@ -24,19 +24,25 @@ const KEYS = [
 ];
 export function normalizeAccount(value, previous) {
   allowedKeys(value, KEYS, 'Account');
-  assert(ACCOUNT_KINDS.includes(value.kind), 'Choose a supported account type.');
+  assert(ACCOUNT_KINDS.includes(value.kind), 'Choose a supported account type.', {
+    code: 'errors.core.accounts.choose-a-supported-account-type',
+  });
   assert(
     value.closed === undefined || typeof value.closed === 'boolean',
     'Closed must be a checkbox value.',
+    { code: 'errors.core.accounts.closed-must-be-a-checkbox-value' },
   );
   assert(
     value.aliases === undefined || Array.isArray(value.aliases),
     'Account aliases must be a list.',
+    { code: 'errors.core.accounts.account-aliases-must-be-a-list' },
   );
   const aliases = (value.aliases ?? []).map((alias) =>
     text(alias, 'Account suffix or alias', { max: 80 }),
   );
-  assert(new Set(aliases).size === aliases.length, 'Account suffixes/aliases must be unique.');
+  assert(new Set(aliases).size === aliases.length, 'Account suffixes/aliases must be unique.', {
+    code: 'errors.core.accounts.account-suffixes-aliases-must-be-unique',
+  });
   return {
     ...metadata(value, previous, 'account'),
     name: text(value.name, 'Account name', { max: 100 }),
@@ -67,6 +73,7 @@ export function deleteAccount(ledger, id) {
   assert(
     ledger.accounts.some((item) => item.id === id),
     'Choose an existing account.',
+    { code: 'errors.core.accounts.choose-an-existing-account' },
   );
   const next = clone(ledger);
   next.accounts = next.accounts.filter((item) => item.id !== id);

@@ -1,4 +1,7 @@
 import { toCents, today, uid } from '../core/values.mjs';
+import { createPresentation } from './formatting.mjs';
+
+const defaultPresentation = createPresentation();
 
 export const $ = (id) => document.getElementById(id);
 export const esc = (value) =>
@@ -6,22 +9,7 @@ export const esc = (value) =>
     /[&<>"']/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
   );
-export const money = (cents) => {
-  let value = BigInt(cents ?? 0);
-  const sign = value < 0n ? '-' : '';
-  if (value < 0n) value = -value;
-  return (
-    sign +
-    new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value / 100n) +
-    '.' +
-    String(value % 100n).padStart(2, '0')
-  );
-};
+export const money = (cents, presentation = defaultPresentation) => presentation.money(cents);
 export const amount = (cents) => {
   let value = BigInt(cents ?? 0);
   const sign = value < 0n ? '-' : '';
@@ -31,34 +19,39 @@ export const amount = (cents) => {
 export const parseMoney = (value) => toCents(String(value).trim());
 export const localToday = () => today();
 export const newId = (prefix) => `${prefix}-${uid()}`;
-export const accountLabel = (account, { includeType = false, includeAliases = false } = {}) =>
+export const accountLabel = (
+  account,
+  { includeType = false, includeAliases = false } = {},
+  presentation = defaultPresentation,
+) =>
   account
-    ? `${account.name}${includeType ? ` · ${kindLabel(account.kind)}` : ''}${includeAliases && account.aliases?.length ? ` · ${account.aliases.join(' / ')}` : ''}${account.closed ? ' (Closed)' : ''}`
-    : 'Missing account';
-export const kindLabel = (kind) =>
+    ? `${account.name}${includeType ? ` · ${kindLabel(account.kind, presentation)}` : ''}${includeAliases && account.aliases?.length ? ` · ${account.aliases.join(' / ')}` : ''}${account.closed ? ` (${presentation.t('ui.closed', 'Closed')})` : ''}`
+    : presentation.t('ui.missingAccount', 'Missing account');
+export const kindLabel = (kind, presentation = defaultPresentation) =>
   ({
-    checking: 'Checking',
-    savings: 'Savings',
-    cd: 'CD',
-    investment: 'Investment',
-    credit_card: 'Credit card',
+    checking: presentation.t('ui.kind.checking', 'Checking'),
+    savings: presentation.t('ui.kind.savings', 'Savings'),
+    cd: presentation.t('ui.kind.cd', 'CD'),
+    investment: presentation.t('ui.kind.investment', 'Investment'),
+    credit_card: presentation.t('ui.kind.creditCard', 'Credit card'),
   })[kind] ?? kind;
-export const options = (items, selected = '', placeholder = 'Choose…') =>
-  `<option value="">${esc(placeholder)}</option>${items.map((item) => `<option value="${esc(item.id)}"${item.id === selected ? ' selected' : ''}>${esc(item.label ?? item.name)}</option>`).join('')}`;
-export const accountChoices = (accounts) =>
+export const options = (items, selected = '', placeholder, presentation = defaultPresentation) =>
+  `<option value="">${esc(placeholder ?? presentation.t('ui.choose', 'Choose…'))}</option>${items.map((item) => `<option value="${esc(item.id)}"${item.id === selected ? ' selected' : ''}>${esc(item.label ?? item.name)}</option>`).join('')}`;
+export const accountChoices = (accounts, presentation = defaultPresentation) =>
   accounts
     .slice()
-    .sort(
-      (a, b) =>
-        a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }) ||
-        a.id.localeCompare(b.id, 'en'),
-    )
+    .sort((a, b) => presentation.compareNames(a.name, b.name) || a.id.localeCompare(b.id, 'en'))
     .map((account) => ({
       id: account.id,
-      label: accountLabel(account, { includeType: true, includeAliases: true }),
+      label: accountLabel(account, { includeType: true, includeAliases: true }, presentation),
     }));
-export const accountOptions = (accounts, selected = '', placeholder = 'Choose…') =>
-  options(accountChoices(accounts), selected, placeholder).replace(
+export const accountOptions = (
+  accounts,
+  selected = '',
+  placeholder,
+  presentation = defaultPresentation,
+) =>
+  options(accountChoices(accounts, presentation), selected, placeholder, presentation).replace(
     '<option ',
     '<option data-account-options ',
   );
@@ -69,7 +62,8 @@ export function closeAccountPicker(root = null) {
   if (activeAccountPicker && (!root || root.contains(activeAccountPicker.select)))
     activeAccountPicker.close();
 }
-export function bindAccountPickers(root) {
+export function bindAccountPickers(root, presentation = defaultPresentation) {
+  const tr = presentation.t;
   if (activeAccountPicker && !activeAccountPicker.select.isConnected) closeAccountPicker();
   for (const select of root.querySelectorAll('select')) {
     if (!select.querySelector('[data-account-options]') || accountPickers.has(select)) continue;
@@ -82,7 +76,7 @@ export function bindAccountPickers(root) {
         .map((node) => node.textContent)
         .join(' ')
         .trim() ||
-      'Account';
+      tr('ui.pickerAccount', 'Account');
     const control = document.createElement('span');
     control.className = 'recording-account-control';
     const trigger = document.createElement('button');
@@ -324,10 +318,23 @@ const actionIcons = {
   sell: '<path d="M7 17 17 7M7 7h10v10M4 13v7h7"/>',
   redeem: '<path d="M4 7h11a5 5 0 0 1 0 10h-3M4 7l4-4M4 7l4 4M7 17h.01M4 17h.01"/>',
 };
-export function actionButton(label, attrs = '', icon = '') {
+export function actionButton(label, attrs = '', icon = '', presentation = defaultPresentation) {
   const lower = label.toLocaleLowerCase('en-US');
   const key =
     icon ||
+    (/data-[^=]*(?:edit)/.test(attrs)
+      ? 'edit'
+      : /data-[^=]*(?:delete|remove)/.test(attrs)
+        ? 'delete'
+        : /data-[^=]*(?:copy)/.test(attrs)
+          ? 'duplicate'
+          : /data-[^=]*(?:result-entry)/.test(attrs)
+            ? 'link'
+            : /data-[^=]*(?:investment)/.test(attrs)
+              ? 'activity'
+              : /data-[^=]*(?:statement)/.test(attrs)
+                ? 'statement'
+                : '') ||
     (lower.startsWith('edit')
       ? 'edit'
       : lower.startsWith('duplicate')
@@ -345,7 +352,7 @@ export function actionButton(label, attrs = '', icon = '') {
                   : lower.startsWith('redeem')
                     ? 'redeem'
                     : 'details');
-  const danger = /^(delete|remove)/.test(lower) ? ' recording-danger' : '';
+  const danger = key === 'delete' || /^(delete|remove)/.test(lower) ? ' recording-danger' : '';
   return `<button type="button" class="recording-action${danger}" aria-label="${esc(label)}" title="${esc(label)}" ${attrs}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${actionIcons[key] ?? actionIcons.details}</svg></button>`;
 }
 export function field(
@@ -353,25 +360,48 @@ export function field(
   name,
   value = '',
   { type = 'text', required = false, optional = false, hint = '', attrs = '' } = {},
+  presentation = defaultPresentation,
 ) {
-  return `<div class="form-field"><label>${esc(label)}${optional ? ' <span>Optional</span>' : ''}<input name="${esc(name)}" type="${type}" value="${esc(value)}"${required ? ' required' : ''} ${attrs}></label>${hint ? `<p class="cash-dialog-help">${esc(hint)}</p>` : ''}</div>`;
+  const tr = presentation.t;
+  return `<div class="form-field"><label>${esc(label)}${optional ? ` <span>${esc(tr('financial.optional_0c6c41', 'Optional'))}</span>` : ''}<input name="${esc(name)}" type="${type}" value="${esc(value)}"${required ? ' required' : ''} ${attrs}></label>${hint ? `<p class="cash-dialog-help">${esc(hint)}</p>` : ''}</div>`;
 }
-export function moneyField(label, name, value = '', { attrs = '', ...config } = {}) {
-  return field(label, name, value, {
-    ...config,
-    attrs: `inputmode="decimal" placeholder="0.00" ${attrs}`,
-  });
+export function moneyField(
+  label,
+  name,
+  value = '',
+  { attrs = '', ...config } = {},
+  presentation = defaultPresentation,
+) {
+  return field(
+    label,
+    name,
+    value,
+    {
+      ...config,
+      attrs: `inputmode="decimal" placeholder="0.00" ${attrs}`,
+    },
+    presentation,
+  );
 }
-export function selectField(label, name, html, required = true) {
+export function selectField(
+  label,
+  name,
+  html,
+  required = true,
+  presentation = defaultPresentation,
+) {
   return `<div class="form-field"><label>${esc(label)}<select name="${esc(name)}"${required ? ' required' : ''}>${html}</select></label></div>`;
 }
-export function noteField(value = '', name = 'note', label = 'Note') {
-  return `<div class="form-field"><label>${esc(label)} <span>Optional</span><textarea name="${esc(name)}" rows="3" maxlength="2000">${esc(value)}</textarea></label></div>`;
+export function noteField(value = '', name = 'note', label, presentation = defaultPresentation) {
+  const tr = presentation.t;
+  label ??= tr('ui.note', 'Note');
+  return `<div class="form-field"><label>${esc(label)} <span>${esc(tr('financial.optional_0c6c41', 'Optional'))}</span><textarea name="${esc(name)}" rows="3" maxlength="2000">${esc(value)}</textarea></label></div>`;
 }
-export function datesHTML(value = {}, prefix = '') {
+export function datesHTML(value = {}, prefix = '', presentation = defaultPresentation) {
+  const tr = presentation.t;
   const activity = value.activityDate ?? localToday(),
     posted = value.postedDate ?? activity;
-  return `<div class="form-grid date-pair"><div class="form-field"><div class="date-label-row"><label for="${prefix}activityDate">Activity date</label><button type="button" class="date-copy" data-copy-date="${prefix}postedDate" data-date-target="${prefix}activityDate">Use posting date</button></div><input id="${prefix}activityDate" name="${prefix}activityDate" type="date" value="${esc(activity)}" required min="0001-01-01" max="9999-12-31"><label class="date-unconfirmed"><input type="checkbox" name="${prefix}activityDateUnconfirmed"${value.activityDateUnconfirmed ? ' checked' : ''}>Activity date unconfirmed</label></div><div class="form-field"><div class="date-label-row"><label for="${prefix}postedDate">Posting date</label><button type="button" class="date-copy" data-copy-date="${prefix}activityDate" data-date-target="${prefix}postedDate">Use activity date</button></div><input id="${prefix}postedDate" name="${prefix}postedDate" type="date" value="${esc(posted)}" required min="0001-01-01" max="9999-12-31"><label class="date-unconfirmed"><input type="checkbox" name="${prefix}postedDateUnconfirmed"${value.postedDateUnconfirmed ? ' checked' : ''}>Posting date unconfirmed</label></div></div>`;
+  return `<div class="form-grid date-pair"><div class="form-field"><div class="date-label-row"><label for="${prefix}activityDate">${esc(tr('financial.activity_date_14bd67', 'Activity date'))}</label><button type="button" class="date-copy" data-copy-date="${prefix}postedDate" data-date-target="${prefix}activityDate">${esc(tr('financial.use_posting_date_919d58', 'Use posting date'))}</button></div><input id="${prefix}activityDate" name="${prefix}activityDate" type="date" value="${esc(activity)}" required min="0001-01-01" max="9999-12-31"><label class="date-unconfirmed"><input type="checkbox" name="${prefix}activityDateUnconfirmed"${value.activityDateUnconfirmed ? ' checked' : ''}>${esc(tr('financial.activity_date_unconfirmed_c87845', 'Activity date unconfirmed'))}</label></div><div class="form-field"><div class="date-label-row"><label for="${prefix}postedDate">${esc(tr('financial.posting_date_342b55', 'Posting date'))}</label><button type="button" class="date-copy" data-copy-date="${prefix}activityDate" data-date-target="${prefix}postedDate">${esc(tr('financial.use_activity_date_3854c5', 'Use activity date'))}</button></div><input id="${prefix}postedDate" name="${prefix}postedDate" type="date" value="${esc(posted)}" required min="0001-01-01" max="9999-12-31"><label class="date-unconfirmed"><input type="checkbox" name="${prefix}postedDateUnconfirmed"${value.postedDateUnconfirmed ? ' checked' : ''}>${esc(tr('financial.posting_date_unconfirmed_4ab5a7', 'Posting date unconfirmed'))}</label></div></div>`;
 }
 export function readDates(form, prefix = '') {
   return {
@@ -393,14 +423,26 @@ export function bindDateCopies(form) {
     }
   });
 }
-export const dateCell = (entry) =>
-  `<span>${esc(entry.activityDate)}${entry.activityDateUnconfirmed ? '<span class="uncertain" title="Activity date unconfirmed">?</span>' : ''}</span><small class="posted-date">Posted ${esc(entry.postedDate)}${entry.postedDateUnconfirmed ? '<span class="uncertain" title="Posting date unconfirmed">?</span>' : ''}</small>`;
-export function showForm({ title, content, submitLabel = 'Save', onSave, onClose, wide = false }) {
+export const dateCell = (entry, presentation = defaultPresentation) => {
+  const tr = presentation.t;
+  return `<span>${esc(entry.activityDate)}${entry.activityDateUnconfirmed ? `<span class="uncertain" title="${esc(tr('financial.activity_date_unconfirmed_c87845', 'Activity date unconfirmed'))}">?</span>` : ''}</span><small class="posted-date">${esc(tr('financial.posted_301777', 'Posted'))} ${esc(entry.postedDate)}${entry.postedDateUnconfirmed ? `<span class="uncertain" title="${esc(tr('financial.posting_date_unconfirmed_4ab5a7', 'Posting date unconfirmed'))}">?</span>` : ''}</small>`;
+};
+export function showForm({
+  title,
+  content,
+  submitLabel,
+  onSave,
+  onClose,
+  wide = false,
+  presentation = defaultPresentation,
+}) {
+  const tr = presentation.t;
+  submitLabel ??= tr('ui.save', 'Save');
   const dialog = document.createElement('dialog');
   dialog.className = `entry-dialog recording-dialog${wide ? ' recording-dialog-wide' : ''}`;
   const titleId = `dialog-${newId('title')}`;
   dialog.setAttribute('aria-labelledby', titleId);
-  dialog.innerHTML = `<form><div class="dialog-heading"><h2 id="${titleId}">${esc(title)}</h2><button type="button" class="icon-button" data-close aria-label="Close form">×</button></div>${content}<p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="button button-outline" data-close>Cancel</button><button type="submit" class="button button-primary">${esc(submitLabel)}</button></div></form>`;
+  dialog.innerHTML = `<form><div class="dialog-heading"><h2 id="${titleId}">${esc(title)}</h2><button type="button" class="icon-button" data-close aria-label="${esc(tr('financial.close_form_56adc8', 'Close form'))}">×</button></div>${content}<p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="button button-outline" data-close>${esc(tr('financial.cancel_77dfd2', 'Cancel'))}</button><button type="submit" class="button button-primary">${esc(submitLabel)}</button></div></form>`;
   document.body.append(dialog);
   const form = dialog.querySelector('form'),
     error = form.querySelector('.form-error');
@@ -408,7 +450,7 @@ export function showForm({ title, content, submitLabel = 'Save', onSave, onClose
     .querySelectorAll('[data-close]')
     .forEach((button) => button.addEventListener('click', () => dialog.close()));
   const showError = (value) => {
-    error.textContent = value?.message ?? String(value);
+    error.textContent = presentation.error(value);
     error.hidden = false;
     error.scrollIntoView({ block: 'nearest' });
   };
@@ -435,20 +477,29 @@ export function showForm({ title, content, submitLabel = 'Save', onSave, onClose
     { once: true },
   );
   bindDateCopies(form);
-  bindAccountPickers(form);
+  bindAccountPickers(form, presentation);
   dialog.showModal();
   return { dialog, form, showError };
 }
-export function showSelectionFilter({ title, description, groups, onApply, onClose }) {
+export function showSelectionFilter({
+  title,
+  description,
+  groups,
+  onApply,
+  onClose,
+  presentation = defaultPresentation,
+}) {
+  const tr = presentation.t;
   const draft = new Map(
     groups.map((group) => [group.id, group.selection === null ? null : new Set(group.selection)]),
   );
   const selected = (groupId, id) => draft.get(groupId) === null || draft.get(groupId).has(id);
   const { form, dialog } = showForm({
     title,
+    presentation,
     wide: groups.length > 1,
-    content: `<p class="cash-dialog-help">${esc(description)}</p><div class="recording-filter-groups${groups.length === 1 ? ' recording-filter-groups-single' : ''}">${groups.map((group) => `<fieldset class="recording-filter-group" data-selection-group="${esc(group.id)}"><legend>${esc(group.label)}</legend><div class="recording-filter-group-actions"><button type="button" class="button button-outline button-compact" data-filter-group="${esc(group.id)}" data-filter-select="all" aria-label="Select all ${esc(group.label.toLowerCase())}">Select all</button><button type="button" class="button button-outline button-compact" data-filter-group="${esc(group.id)}" data-filter-select="none" aria-label="Deselect all ${esc(group.label.toLowerCase())}">Deselect all</button></div><div class="recording-check-list">${group.items.length ? group.items.map((item) => `<label><input type="checkbox" data-filter-choice="${esc(item.id)}" data-choice-group="${esc(group.id)}"${selected(group.id, item.id) ? ' checked' : ''}><span>${esc(item.label)}</span></label>`).join('') : '<p class="recording-note">No choices yet.</p>'}</div><p class="recording-note" data-selection-status="${esc(group.id)}" role="status"></p></fieldset>`).join('')}</div>`,
-    submitLabel: 'Apply filters',
+    content: `<p class="cash-dialog-help">${esc(description)}</p><div class="recording-filter-groups${groups.length === 1 ? ' recording-filter-groups-single' : ''}">${groups.map((group) => `<fieldset class="recording-filter-group" data-selection-group="${esc(group.id)}"><legend>${esc(group.label)}</legend><div class="recording-filter-group-actions"><button type="button" class="button button-outline button-compact" data-filter-group="${esc(group.id)}" data-filter-select="all" aria-label="${esc(tr('financial.select_all_913aff', 'Select all'))} ${esc(group.label.toLowerCase())}">${esc(tr('financial.select_all_913aff', 'Select all'))}</button><button type="button" class="button button-outline button-compact" data-filter-group="${esc(group.id)}" data-filter-select="none" aria-label="${esc(tr('financial.deselect_all_85cce1', 'Deselect all'))} ${esc(group.label.toLowerCase())}">${esc(tr('financial.deselect_all_85cce1', 'Deselect all'))}</button></div><div class="recording-check-list">${group.items.length ? group.items.map((item) => `<label><input type="checkbox" data-filter-choice="${esc(item.id)}" data-choice-group="${esc(group.id)}"${selected(group.id, item.id) ? ' checked' : ''}><span>${esc(item.label)}</span></label>`).join('') : `<p class="recording-note">${esc(tr('financial.no_choices_yet_5cb3a9', 'No choices yet.'))}</p>`}</div><p class="recording-note" data-selection-status="${esc(group.id)}" role="status"></p></fieldset>`).join('')}</div>`,
+    submitLabel: tr('financial.apply_filters_926161', 'Apply filters'),
     onSave: (_form, view) => {
       onApply(
         new Map([...draft].map(([id, choice]) => [id, choice === null ? null : new Set(choice)])),
@@ -461,8 +512,11 @@ export function showSelectionFilter({ title, description, groups, onApply, onClo
   function updateCounts() {
     for (const group of groups) {
       const count = group.items.filter((item) => selected(group.id, item.id)).length;
-      form.querySelector(`[data-selection-status="${group.id}"]`).textContent =
-        `${count} of ${group.items.length} selected`;
+      form.querySelector(`[data-selection-status="${group.id}"]`).textContent = tr(
+        'ui.selectedCount',
+        '{count} of {total} selected',
+        { count, total: group.items.length },
+      );
     }
   }
   form.addEventListener('change', (event) => {
@@ -491,16 +545,29 @@ export function showSelectionFilter({ title, description, groups, onApply, onClo
   return { form, dialog };
 }
 
-export function confirmAction(title, description, action, label = 'Delete') {
+export function confirmAction(
+  title,
+  description,
+  action,
+  label,
+  presentation = defaultPresentation,
+) {
+  const tr = presentation.t;
   return showForm({
     title,
     content: `<p class="cash-dialog-copy">${esc(description)}</p>`,
-    submitLabel: label,
+    submitLabel: label ?? tr('ui.delete', 'Delete'),
+    presentation,
     onSave: async (_form, dialog) => {
       await action();
       dialog.close();
     },
   });
+}
+export function tableLabel(key, presentation = defaultPresentation) {
+  return presentation.language === 'en'
+    ? key
+    : presentation.t(`tables.${key}`, presentation.t('ui.dataTable', 'Data table'));
 }
 export function tableHTML(
   key,
@@ -509,14 +576,22 @@ export function tableHTML(
   renderRow,
   state,
   size = 20,
-  empty = 'No records to display.',
+  empty,
+  presentation = defaultPresentation,
 ) {
+  const tr = presentation.t;
+  empty ??= tr('ui.noRecords', 'No records to display.');
   const pages = Math.max(1, Math.ceil(items.length / size));
   state.page = Math.min(Math.max(1, state.page || 1), pages);
   const start = (state.page - 1) * size;
-  return `<div class="records-surface"><div class="table-scroll" role="region" aria-label="${esc(key)}" tabindex="0"><table><thead><tr>${headings
+  return `<div class="records-surface"><div class="table-scroll" role="region" aria-label="${esc(tableLabel(key, presentation))}" data-table-key="${esc(key)}" tabindex="0"><table><thead><tr>${headings
     .map((heading) => {
-      const label = typeof heading === 'string' ? heading : heading.label;
+      const label =
+        typeof heading === 'string'
+          ? heading
+          : heading.monetary
+            ? esc(presentation.currencyLabel(heading.label))
+            : heading.label;
       const align = typeof heading === 'string' ? 'start' : heading.align;
       const alignment = ['start', 'center', 'end'].includes(align) ? align : 'start';
       return `<th scope="col" class="table-align-${alignment}">${label}</th>`;
@@ -527,9 +602,18 @@ export function tableHTML(
       .map(renderRow)
       .join('') ||
     `<tr><td colspan="${headings.length}" class="table-empty">${esc(empty)}</td></tr>`
-  }</tbody></table></div><div class="table-footer"><span>${items.length ? `${start + 1}–${Math.min(start + size, items.length)} of ${items.length}` : '0 records'}</span><div class="pagination" data-pager="${esc(key)}"><button class="button button-outline button-compact" type="button" data-page="first"${state.page === 1 ? ' disabled' : ''}>First page</button><button class="icon-button" type="button" data-page="previous" aria-label="Previous page"${state.page === 1 ? ' disabled' : ''}>‹</button><form class="page-jump"><label>Page <input type="number" name="page" value="${state.page}" min="1" max="${pages}" step="1" inputmode="numeric" aria-label="Go to page"></label><span>of ${pages}</span><button class="button button-outline button-compact" type="submit"${items.length ? '' : ' disabled'}>Go</button></form><button class="icon-button" type="button" data-page="next" aria-label="Next page"${state.page === pages ? ' disabled' : ''}>›</button><button class="button button-outline button-compact" type="button" data-page="last"${state.page === pages ? ' disabled' : ''}>Last page</button><p class="pagination-error" role="alert" hidden></p></div></div></div>`;
+  }</tbody></table></div><div class="table-footer"><span>${items.length ? tr('ui.recordRange', '{start}–{end} of {total}', { start: start + 1, end: Math.min(start + size, items.length), total: items.length }) : tr('ui.zeroRecords', '0 records')}</span><div class="pagination" data-pager="${esc(key)}"><button class="button button-outline button-compact" type="button" data-page="first"${state.page === 1 ? ' disabled' : ''}>${esc(tr('financial.first_page_49d74b', 'First page'))}</button><button class="icon-button" type="button" data-page="previous" aria-label="${esc(tr('financial.previous_page_81f547', 'Previous page'))}"${state.page === 1 ? ' disabled' : ''}>‹</button><form class="page-jump"><label>${esc(tr('financial.page_fb0627', 'Page'))} <input type="number" name="page" value="${state.page}" min="1" max="${pages}" step="1" inputmode="numeric" aria-label="${esc(tr('financial.go_to_page_15e973', 'Go to page'))}"></label><span>${esc(tr('financial.of_de04fa', 'of'))} ${pages}</span><button class="button button-outline button-compact" type="submit"${items.length ? '' : ' disabled'}>${esc(tr('financial.go_2e0b45', 'Go'))}</button></form><button class="icon-button" type="button" data-page="next" aria-label="${esc(tr('financial.next_page_4bfc19', 'Next page'))}"${state.page === pages ? ' disabled' : ''}>›</button><button class="button button-outline button-compact" type="button" data-page="last"${state.page === pages ? ' disabled' : ''}>${esc(tr('financial.last_page_b01f16', 'Last page'))}</button><p class="pagination-error" role="alert" hidden></p></div></div></div>`;
 }
-export function bindPager(root, key, count, state, size, onChange) {
+export function bindPager(
+  root,
+  key,
+  count,
+  state,
+  size,
+  onChange,
+  presentation = defaultPresentation,
+) {
+  const tr = presentation.t;
   const pager = [...root.querySelectorAll('[data-pager]')].find((el) => el.dataset.pager === key);
   if (!pager) return;
   const pages = Math.max(1, Math.ceil(count / size));
@@ -544,7 +628,11 @@ export function bindPager(root, key, count, state, size, onChange) {
     const value = Number(new FormData(event.currentTarget).get('page'));
     const error = pager.querySelector('.pagination-error');
     if (!Number.isInteger(value) || value < 1 || value > pages) {
-      error.textContent = `Choose a whole page number from 1 to ${pages}.`;
+      error.textContent = tr(
+        'ui.pageNumberRange',
+        'Choose a whole page number from 1 to {pages}.',
+        { pages },
+      );
       error.hidden = false;
       return;
     }
@@ -552,14 +640,58 @@ export function bindPager(root, key, count, state, size, onChange) {
     onChange();
   });
 }
-export function totalsHTML(items, { available = true } = {}) {
+export function totalsHTML(items, { available = true } = {}, presentation = defaultPresentation) {
+  const tr = presentation.t;
+  const money = presentation.money;
   if (!available)
-    return `<div class="summary-grid">${['Total gains', 'Total expenses', 'Net recorded'].map((label) => `<div class="summary-stat"><span class="stat-label">${label}</span><strong class="stat-value">—</strong><span class="stat-caption">Correct the date range to show totals</span></div>`).join('')}</div>`;
+    return `<div class="summary-grid">${[tr('financial.total_gains_acf4f9', 'Total gains'), tr('financial.total_expenses_67fe37', 'Total expenses'), tr('financial.net_recorded_bb7e3c', 'Net recorded')].map((label) => `<div class="summary-stat"><span class="stat-label">${esc(presentation.currencyLabel(label))}</span><strong class="stat-value">—</strong><span class="stat-caption">${esc(tr('financial.correct_the_date_range_to_show_totals_e0ab9c', 'Correct the date range to show totals'))}</span></div>`).join('')}</div>`;
   const gains = items
       .filter((e) => e.kind === 'gain')
       .reduce((sum, e) => sum + BigInt(e.amountCents), 0n),
     expenses = items
       .filter((e) => e.kind === 'expense')
       .reduce((sum, e) => sum + BigInt(e.amountCents), 0n);
-  return `<div class="summary-grid"><div class="summary-stat"><span class="stat-label">Total gains</span><strong class="stat-value gains-value">${money(gains)}</strong><span class="stat-caption">Recorded gains in this view</span></div><div class="summary-stat"><span class="stat-label">Total expenses</span><strong class="stat-value">${money(expenses)}</strong><span class="stat-caption">Recorded expenses in this view</span></div><div class="summary-stat"><span class="stat-label">Net recorded</span><strong class="stat-value">${money(gains - expenses)}</strong><span class="stat-caption">Gains minus expenses</span></div></div>`;
+  return `<div class="summary-grid"><div class="summary-stat"><span class="stat-label">${esc(presentation.currencyLabel(tr('financial.total_gains_acf4f9', 'Total gains')))}</span><strong class="stat-value gains-value">${money(gains)}</strong><span class="stat-caption">${esc(tr('financial.recorded_gains_in_this_view_960995', 'Recorded gains in this view'))}</span></div><div class="summary-stat"><span class="stat-label">${esc(presentation.currencyLabel(tr('financial.total_expenses_67fe37', 'Total expenses')))}</span><strong class="stat-value">${money(expenses)}</strong><span class="stat-caption">${esc(tr('financial.recorded_expenses_in_this_view_9c1195', 'Recorded expenses in this view'))}</span></div><div class="summary-stat"><span class="stat-label">${esc(presentation.currencyLabel(tr('financial.net_recorded_bb7e3c', 'Net recorded')))}</span><strong class="stat-value">${money(gains - expenses)}</strong><span class="stat-caption">${esc(tr('financial.gains_minus_expenses_7b876e', 'Gains minus expenses'))}</span></div></div>`;
+}
+
+/** Bind presentation to a screen without sharing mutable language or currency state. */
+export function createUIHelpers(context = {}) {
+  const get =
+    typeof context === 'function'
+      ? context
+      : () =>
+          context.getPresentation?.() ??
+          createPresentation({ currency: context.getDocument?.().ledger.currency ?? 'USD' });
+  return {
+    t: (...args) => get().t(...args),
+    error: (value) => get().error(value),
+    money: (value) => money(value, get()),
+    kindLabel: (kind) => kindLabel(kind, get()),
+    accountLabel: (account, config) => accountLabel(account, config, get()),
+    accountChoices: (accounts) => accountChoices(accounts, get()),
+    accountOptions: (accounts, selected, placeholder) =>
+      accountOptions(accounts, selected, placeholder, get()),
+    options: (items, selected, placeholder) => options(items, selected, placeholder, get()),
+    bindAccountPickers: (root) => bindAccountPickers(root, get()),
+    field: (label, name, value, config) => field(label, name, value, config, get()),
+    moneyField: (label, name, value, config) => moneyField(label, name, value, config, get()),
+    selectField: (label, name, html, required) => selectField(label, name, html, required, get()),
+    noteField: (value, name, label) => noteField(value, name, label, get()),
+    datesHTML: (value, prefix) => datesHTML(value, prefix, get()),
+    dateCell: (entry) => dateCell(entry, get()),
+    actionButton: (label, attrs, icon) => actionButton(label, attrs, icon, get()),
+    showForm: (config) => showForm({ ...config, presentation: get() }),
+    showSelectionFilter: (config) => showSelectionFilter({ ...config, presentation: get() }),
+    confirmAction: (title, description, action, label) =>
+      confirmAction(title, description, action, label, get()),
+    tableLabel: (key) => tableLabel(key, get()),
+    tableHTML: (key, headings, items, row, state, size, empty) =>
+      tableHTML(key, headings, items, row, state, size, empty, get()),
+    bindPager: (root, key, count, state, size, change) =>
+      bindPager(root, key, count, state, size, change, get()),
+    totalsHTML: (items, config) => totalsHTML(items, config, get()),
+    compareNames: (a, b) => get().compareNames(a, b),
+    unit: () => get().currency,
+    currencyLabel: (label) => get().currencyLabel(label),
+  };
 }

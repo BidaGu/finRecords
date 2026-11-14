@@ -1,3 +1,4 @@
+import { createUIHelpers } from './shared-controls.mjs';
 import { investmentSummary } from '../behaviors/investment.mjs';
 import {
   $,
@@ -23,6 +24,27 @@ import {
 } from './shared-controls.mjs';
 
 export function createInvestmentsUI(ctx) {
+  const {
+    t: tr,
+    error: localizeError,
+    compareNames,
+    unit,
+    currencyLabel,
+    money,
+    accountOptions,
+    options,
+    field,
+    moneyField,
+    selectField,
+    noteField,
+    datesHTML,
+    dateCell,
+    actionButton,
+    showForm,
+    confirmAction,
+    tableHTML,
+    bindPager,
+  } = createUIHelpers(ctx);
   const holdingPage = { page: 1 },
     activityPage = { page: 1 };
   let previousAccount = '';
@@ -33,14 +55,18 @@ export function createInvestmentsUI(ctx) {
       value = existing ?? {},
       accounts = l.accounts.filter((a) => a.kind === 'investment');
     const { form } = showForm({
-      title: existing ? 'Edit purchase' : 'Add purchase',
+      title: existing
+        ? tr('financial.edit_purchase_1d6499', 'Edit purchase')
+        : tr('financial.add_purchase_8ba6b9', 'Add purchase'),
       wide: true,
       content: `${selectField(
-        'Investment account',
+        tr('financial.investment_account_f3d13a', 'Investment account'),
         'accountId',
         accountOptions(accounts, value.accountId ?? ctx.accountId),
-      )}<div class="form-grid">${selectField('Holding type', 'instrument', `<option value="treasury_bill"${value.instrument !== 'asset' ? ' selected' : ''}>Treasury bill</option><option value="asset"${value.instrument === 'asset' ? ' selected' : ''}>Other holding at cost</option>`)}${field('Holding name', 'name', value.name ?? '', { required: true, attrs: 'maxlength="100"' })}</div>${datesHTML(value, 'purchase-')}<div class="form-grid">${moneyField('Purchase cost ($)', 'cost', existing ? amount(value.costCents) : '', { required: true })}${field('Quantity / shares', 'quantity', value.quantity ?? '', { type: 'number', attrs: 'min="0" step="any"' })}</div><div data-bill-fields><div class="form-grid">${moneyField('Face value ($)', 'faceValue', value.faceValueCents ? amount(value.faceValueCents) : '')}${field('Term (weeks)', 'termWeeks', value.termWeeks ?? '', { type: 'number', attrs: 'min="1" max="52" step="1" placeholder="Unknown"' })}${field('Contract maturity date', 'maturityDate', value.maturityDate ?? '', { type: 'date' })}${field('CUSIP', 'cusip', value.cusip ?? '', { attrs: 'maxlength="9" placeholder="Unknown"' })}</div><p class="cash-dialog-help">Leave unknown bill details blank. Contract maturity does not automatically create a redemption or interest.</p></div>${noteField(value.note ?? '')}<p class="cash-dialog-help">A purchase moves cash into holdings at cost. Record actual funding as a transfer.</p>`,
-      submitLabel: existing ? 'Save changes' : 'Add purchase',
+      )}<div class="form-grid">${selectField(tr('financial.holding_type_c5ac4d', 'Holding type'), 'instrument', `<option value="treasury_bill"${value.instrument !== 'asset' ? ' selected' : ''}>${esc(tr('financial.treasury_bill_b32de4', 'Treasury bill'))}</option><option value="asset"${value.instrument === 'asset' ? ' selected' : ''}>${esc(tr('financial.other_holding_at_cost_72dbe1', 'Other holding at cost'))}</option>`)}${field(tr('financial.holding_name_833cf8', 'Holding name'), 'name', value.name ?? '', { required: true, attrs: 'maxlength="100"' })}</div>${datesHTML(value, 'purchase-')}<div class="form-grid">${moneyField(tr('financial.purchase_cost_805c58', 'Purchase cost ({currency})', { currency: unit() }), 'cost', existing ? amount(value.costCents) : '', { required: true })}${field(tr('financial.quantity_shares_127e3b', 'Quantity / shares'), 'quantity', value.quantity ?? '', { type: 'number', attrs: 'min="0" step="any"' })}</div><div data-bill-fields><div class="form-grid">${moneyField(tr('financial.face_value_ac197a', 'Face value ({currency})', { currency: unit() }), 'faceValue', value.faceValueCents ? amount(value.faceValueCents) : '')}${field(tr('financial.term_weeks_26d10f', 'Term (weeks)'), 'termWeeks', value.termWeeks ?? '', { type: 'number', attrs: `min="1" max="52" step="1" placeholder="${esc(tr('ui.unknown', 'Unknown'))}"` })}${field(tr('financial.contract_maturity_date_96c6aa', 'Contract maturity date'), 'maturityDate', value.maturityDate ?? '', { type: 'date' })}${field(tr('financial.cusip_595a6f', 'CUSIP'), 'cusip', value.cusip ?? '', { attrs: `maxlength="9" placeholder="${esc(tr('ui.unknown', 'Unknown'))}"` })}</div><p class="cash-dialog-help">${esc(tr('financial.leave_unknown_bill_details_blank_contract_maturity_does_no_3839db', 'Leave unknown bill details blank. Contract maturity does not automatically create a redemption or interest.'))}</p></div>${noteField(value.note ?? '')}<p class="cash-dialog-help">${esc(tr('financial.a_purchase_moves_cash_into_holdings_at_cost_record_actual__d84f63', 'A purchase moves cash into holdings at cost. Record actual funding as a transfer.'))}</p>`,
+      submitLabel: existing
+        ? tr('financial.save_changes_179359', 'Save changes')
+        : tr('financial.add_purchase_8ba6b9', 'Add purchase'),
       onSave: (f, d) => {
         const next = {
           id: existing?.id ?? newId('holding'),
@@ -84,7 +110,10 @@ export function createInvestmentsUI(ctx) {
     const initial =
       holdings.find((h) => h.id === (existing?.holdingId ?? holdingId)) ?? holdings[0];
     if (!initial)
-      throw new Error('Add an available holding before recording a sale or redemption.');
+      throw Object.assign(
+        new Error('Add an available holding before recording a sale or redemption.'),
+        { code: 'ui.availableHolding', params: {} },
+      );
     const linked = l.entries.find((e) => e.id === existing?.resultEntryId),
       initialDates = existing ?? {};
     const gainCats = l.categories
@@ -92,20 +121,30 @@ export function createInvestmentsUI(ctx) {
       .map((c) => ({ ...c, name: c.label }));
     const { form } = showForm({
       title: existing
-        ? 'Edit investment activity'
+        ? tr('financial.edit_investment_activity_06dfb8', 'Edit investment activity')
         : preferredKind === 'sale'
-          ? 'Record sale'
-          : 'Record redemption',
+          ? tr('financial.record_sale_0b1390', 'Record sale')
+          : tr('financial.record_redemption_277140', 'Record redemption'),
       wide: true,
       content: `${selectField(
-        'Holding',
+        tr('financial.money.holdingCostLabel', 'Holding / purchase cost ({currency})', {
+          currency: unit(),
+        }),
         'holdingId',
         options(
-          holdings.map((h) => ({ ...h, name: `${h.name} · cost ${money(h.costCents)}` })),
+          holdings.map((h) => ({
+            ...h,
+            name: tr('ui.holdingCost', '{name} · cost {cost}', {
+              name: h.name,
+              cost: money(h.costCents),
+            }),
+          })),
           initial.id,
         ),
-      )}${selectField('Activity', 'kind', `<option value="redemption"${(existing?.kind ?? preferredKind ?? (initial.instrument === 'treasury_bill' ? 'redemption' : 'sale')) === 'redemption' ? ' selected' : ''}>Redemption</option><option value="sale"${(existing?.kind ?? preferredKind ?? (initial.instrument === 'treasury_bill' ? 'redemption' : 'sale')) === 'sale' ? ' selected' : ''}>Sale</option>`)}${datesHTML(initialDates, 'operation-')}${moneyField('Actual proceeds ($)', 'proceeds', existing ? amount(existing.proceedsCents) : '', { required: true })}<div class="recording-result" data-result-summary>Enter actual proceeds to review the realized result.</div><div data-result-options>${selectField('Realized result entry', 'resultMode', `<option value="new">${linked ? 'Update linked Gain/Expense' : 'Create new Gain/Expense'}</option><option value="existing"${linked ? ' selected' : ''}>${linked ? 'Keep existing Gain/Expense' : 'Select existing Gain/Expense'}</option>`)}<div data-existing-result>${selectField('Existing Gain/Expense', 'resultEntryId', '', false)}</div><div data-new-result><h3 data-result-title>Realized Gain/Expense</h3>${datesHTML(linked ?? initialDates, 'result-')}${selectField('Category', 'resultCategoryId', options(gainCats, linked?.categoryId), false)}${field('Merchant or source', 'resultMerchant', linked?.merchant ?? '', { attrs: 'maxlength="200"' })}${noteField(linked?.note ?? '', 'resultNote', 'Gain/Expense note')}</div></div>${noteField(existing?.note ?? '', 'note', 'Investment activity note')}<p class="cash-dialog-help">The result is included in proceeds once. This records the full holding; funding and payouts are separate transfers.</p>`,
-      submitLabel: existing ? 'Save changes' : 'Save activity',
+      )}${selectField(tr('financial.activity_81c0d9', 'Activity'), 'kind', `<option value="redemption"${(existing?.kind ?? preferredKind ?? (initial.instrument === 'treasury_bill' ? 'redemption' : 'sale')) === 'redemption' ? ' selected' : ''}>${esc(tr('financial.redemption_843604', 'Redemption'))}</option><option value="sale"${(existing?.kind ?? preferredKind ?? (initial.instrument === 'treasury_bill' ? 'redemption' : 'sale')) === 'sale' ? ' selected' : ''}>${esc(tr('financial.sale_0028d7', 'Sale'))}</option>`)}${datesHTML(initialDates, 'operation-')}${moneyField(tr('financial.actual_proceeds_568812', 'Actual proceeds ({currency})', { currency: unit() }), 'proceeds', existing ? amount(existing.proceedsCents) : '', { required: true })}<div class="recording-result" data-result-summary>${esc(tr('financial.enter_actual_proceeds_to_review_the_realized_result_eaee6b', 'Enter actual proceeds to review the realized result.'))}</div><div data-result-options>${selectField(tr('financial.realized_result_entry_60f88f', 'Realized result entry'), 'resultMode', `<option value="new">${linked ? tr('financial.update_linked_gain_expense_ce0fe5', 'Update linked Gain/Expense') : tr('financial.create_new_gain_expense_8c1b32', 'Create new Gain/Expense')}</option><option value="existing"${linked ? ' selected' : ''}>${linked ? tr('financial.keep_existing_gain_expense_f9bc72', 'Keep existing Gain/Expense') : tr('financial.select_existing_gain_expense_87f1c6', 'Select existing Gain/Expense')}</option>`)}<div data-existing-result>${selectField(currencyLabel(tr('financial.existing_gain_expense_b2c54d', 'Existing Gain/Expense')), 'resultEntryId', '', false)}</div><div data-new-result><h3 data-result-title>${esc(currencyLabel(tr('financial.realized_gain_expense_c0f934', 'Realized Gain/Expense')))}</h3>${datesHTML(linked ?? initialDates, 'result-')}${selectField(tr('financial.category_a3c686', 'Category'), 'resultCategoryId', options(gainCats, linked?.categoryId), false)}${field(tr('financial.merchant_or_source_edb6cc', 'Merchant or source'), 'resultMerchant', linked?.merchant ?? '', { attrs: 'maxlength="200"' })}${noteField(linked?.note ?? '', 'resultNote', tr('financial.gain_expense_note_87c608', 'Gain/Expense note'))}</div></div>${noteField(existing?.note ?? '', 'note', tr('financial.investment_activity_note_23f262', 'Investment activity note'))}<p class="cash-dialog-help">${esc(tr('financial.the_result_is_included_in_proceeds_once_this_records_the_f_69526a', 'The result is included in proceeds once. This records the full holding; funding and payouts are separate transfers.'))}</p>`,
+      submitLabel: existing
+        ? tr('financial.save_changes_179359', 'Save changes')
+        : tr('financial.save_activity_6056aa', 'Save activity'),
       onSave: (f, d) => {
         const holding = l.holdings.find((h) => h.id === f.elements.holdingId.value),
           proceedsCents = parseMoney(f.elements.proceeds.value),
@@ -164,18 +203,44 @@ export function createInvestmentsUI(ctx) {
       }
       form.querySelector('[data-result-summary]').textContent =
         result === null
-          ? 'Enter actual proceeds to review the realized result.'
-          : `Purchase cost: ${money(holding.costCents)} · Proceeds: ${money(parseMoney(form.elements.proceeds.value))} · ${result === 0n ? 'No realized Gain/Expense' : `Realized ${kind === 'gain' ? 'Gain' : 'Expense'}: ${money(result < 0n ? -result : result)}`}`;
+          ? tr(
+              'financial.enter_actual_proceeds_to_review_the_realized_result_eaee6b',
+              'Enter actual proceeds to review the realized result.',
+            )
+          : tr(
+              'financial.money.proceedsSummary',
+              'Purchase cost ({currency}): {cost} · Proceeds ({currency}): {proceeds} · {result}',
+              {
+                currency: unit(),
+                cost: money(holding.costCents),
+                proceeds: money(parseMoney(form.elements.proceeds.value)),
+                result:
+                  result === 0n
+                    ? tr('financial.no_realized_gain_expense_59284f', 'No realized Gain/Expense')
+                    : tr(
+                        'financial.money.realizedResult',
+                        'Realized {kind} ({currency}): {amount}',
+                        {
+                          currency: unit(),
+                          kind:
+                            kind === 'gain'
+                              ? tr('financial.gain_96dd91', 'Gain')
+                              : tr('financial.expense_a0db8e', 'Expense'),
+                          amount: money(result < 0n ? -result : result),
+                        },
+                      ),
+              },
+            );
       form.querySelector('[data-result-options]').hidden = !nonzero;
       const currentCategory = form.elements.resultCategoryId.value,
         categories = l.categories
           .filter((c) => c.kind === kind)
           .slice()
-          .sort((a, b) => a.label.localeCompare(b.label));
+          .sort((a, b) => compareNames(a.label, b.label));
       form.elements.resultCategoryId.innerHTML = options(
         categories.map((c) => ({ ...c, name: c.label })),
         currentCategory,
-        'Choose a category',
+        tr('financial.choose_a_category_b91bf5', 'Choose a category'),
       );
       const eligible = l.entries.filter(
         (e) =>
@@ -193,13 +258,19 @@ export function createInvestmentsUI(ctx) {
           name: `${e.activityDate} · ${money(e.amountCents)} · ${e.merchant || e.note || e.kind}`,
         })),
         selected,
-        'Choose an existing entry',
+        tr('financial.choose_an_existing_entry_28eadd', 'Choose an existing entry'),
       );
       const creating = form.elements.resultMode.value === 'new';
       form.querySelector('[data-new-result]').hidden = !creating;
       form.querySelector('[data-existing-result]').hidden = creating;
-      form.querySelector('[data-result-title]').textContent =
-        `Realized ${kind === 'gain' ? 'Gain' : 'Expense'}`;
+      form.querySelector('[data-result-title]').textContent = currencyLabel(
+        tr('ui.realizedKind', 'Realized {kind}', {
+          kind:
+            kind === 'gain'
+              ? tr('financial.gain_96dd91', 'Gain')
+              : tr('financial.expense_a0db8e', 'Expense'),
+        }),
+      );
       for (const name of [
         'result-activityDate',
         'result-postedDate',
@@ -241,7 +312,7 @@ export function createInvestmentsUI(ctx) {
     try {
       summary = investmentSummary(l, account.id, { through });
     } catch (error) {
-      root.innerHTML = `<p class="form-error" role="alert">${esc(error.message)}</p>`;
+      root.innerHTML = `<p class="form-error" role="alert">${esc(localizeError(error))}</p>`;
       return;
     }
     const holdings = summary.holdings
@@ -250,7 +321,7 @@ export function createInvestmentsUI(ctx) {
     const activities = summary.activities.filter(
       (a) => (!from || a.postedDate >= from) && (!through || a.postedDate <= through),
     );
-    root.innerHTML = `<section class="recording-section"><div class="recording-table-heading"><div><h2>Holdings <span class="count-pill">${holdings.length}</span></h2><p class="recording-note">Holdings at purchase cost. Status uses the Through date.</p></div><button class="button button-outline" type="button" data-investment-add>＋ Add purchase</button></div>${tableHTML('holdings', ['Purchase activity', 'Holding', { label: 'Cost', align: 'end' }, { label: 'Quantity', align: 'end' }, { label: 'Face value', align: 'end' }, 'Contract maturity', 'Status', { label: 'Actions', align: 'end' }], holdings, (h) => `<tr><td>${dateCell(h)}</td><td>${esc(h.name)}<small class="posted-date">${h.instrument === 'treasury_bill' ? 'Treasury bill' : 'Holding at cost'}${h.cusip ? ` · ${esc(h.cusip)}` : ''}</small></td><td class="amount">${money(h.costCents)}</td><td class="numeric">${esc(h.quantity ?? '—')}</td><td class="amount">${h.faceValueCents ? money(h.faceValueCents) : '—'}</td><td>${esc(h.maturityDate ?? '—')}</td><td>${h.status === 'disposed' ? 'Disposed' : h.status === 'future' ? 'Future' : 'Active'}</td><td><div class="recording-actions">${actionButton('Edit', `data-purchase-edit="${esc(h.id)}"`)}${!h.disposal ? `${actionButton('Sell', `data-holding-sale="${esc(h.id)}"`)}${h.instrument === 'treasury_bill' ? actionButton('Redeem', `data-holding-redeem="${esc(h.id)}"`) : ''}` : actionButton('Activity', `data-disposal-edit="${esc(h.disposal.id)}"`)}${actionButton('Remove', `data-purchase-delete="${esc(h.id)}"`)}</div></td></tr>`, holdingPage, 20, 'No holdings recorded for this account.')}</section><section class="recording-section"><div class="recording-table-heading"><h2>Investment activity</h2><span class="scope-note">Posting date range</span></div>${tableHTML('investment-activity', ['Activity date', 'Activity', 'Holding', { label: 'Cash change', align: 'end' }, { label: 'Realized result', align: 'end' }, 'Note', { label: 'Actions', align: 'end' }], activities, (a) => `<tr><td>${dateCell(a)}</td><td>${a.kind === 'purchase' ? 'Buy' : a.kind === 'redemption' ? 'Redeem' : 'Sell'}</td><td>${esc(a.name)}</td><td class="amount">${money(a.cashChangeCents)}</td><td class="amount">${a.resultCents ? money(a.resultCents) : '—'}</td><td>${esc(a.note)}</td><td><div class="recording-actions">${actionButton('Edit', a.kind === 'purchase' ? `data-purchase-edit="${esc(a.id)}"` : `data-disposal-edit="${esc(a.id)}"`)}${a.resultEntryId ? actionButton('Gain/Expense', `data-result-entry="${esc(a.resultEntryId)}"`) : ''}${a.kind !== 'purchase' ? actionButton('Delete', `data-disposal-delete="${esc(a.id)}"`) : ''}</div></td></tr>`, activityPage, 20, 'No investment activity in this posting-date range.')}</section>`;
+    root.innerHTML = `<section class="recording-section"><div class="recording-table-heading"><div><h2>${esc(tr('financial.holdings_72f9d3', 'Holdings'))} <span class="count-pill">${holdings.length}</span></h2><p class="recording-note">${esc(tr('financial.holdings_at_purchase_cost_status_uses_the_through_date_fe8128', 'Holdings at purchase cost. Status uses the Through date.'))}</p></div><button class="button button-outline" type="button" data-investment-add>${esc(tr('financial.add_purchase_356d9c', '＋ Add purchase'))}</button></div>${tableHTML('holdings', [tr('financial.purchase_activity_dc2c70', 'Purchase activity'), tr('financial.holding_1df195', 'Holding'), { label: tr('financial.cost_64ae43', 'Cost'), align: 'end', monetary: true }, { label: tr('financial.quantity_44f6af', 'Quantity'), align: 'end' }, { label: tr('financial.face_value_40f915', 'Face value'), align: 'end', monetary: true }, tr('financial.contract_maturity_a717bb', 'Contract maturity'), tr('financial.status_bae7d5', 'Status'), { label: tr('financial.actions_c3cd63', 'Actions'), align: 'end' }], holdings, (h) => `<tr><td>${dateCell(h)}</td><td>${esc(h.name)}<small class="posted-date">${h.instrument === 'treasury_bill' ? tr('financial.treasury_bill_b32de4', 'Treasury bill') : tr('financial.holding_at_cost_816531', 'Holding at cost')}${h.cusip ? ` · ${esc(h.cusip)}` : ''}</small></td><td class="amount">${money(h.costCents)}</td><td class="numeric">${esc(h.quantity ?? '—')}</td><td class="amount">${h.faceValueCents ? money(h.faceValueCents) : '—'}</td><td>${esc(h.maturityDate ?? '—')}</td><td>${h.status === 'disposed' ? tr('financial.disposed_1397ce', 'Disposed') : h.status === 'future' ? tr('financial.future_047ca5', 'Future') : tr('financial.active_a733b8', 'Active')}</td><td><div class="recording-actions">${actionButton(tr('financial.edit_530164', 'Edit'), `data-purchase-edit="${esc(h.id)}"`)}${!h.disposal ? `${actionButton(tr('financial.sell_fa3cf2', 'Sell'), `data-holding-sale="${esc(h.id)}"`)}${h.instrument === 'treasury_bill' ? actionButton(tr('financial.redeem_db3f81', 'Redeem'), `data-holding-redeem="${esc(h.id)}"`) : ''}` : actionButton(tr('financial.activity_81c0d9', 'Activity'), `data-disposal-edit="${esc(h.disposal.id)}"`)}${actionButton(tr('financial.remove_e96390', 'Remove'), `data-purchase-delete="${esc(h.id)}"`)}</div></td></tr>`, holdingPage, 20, tr('financial.no_holdings_recorded_for_this_account_827b2c', 'No holdings recorded for this account.'))}</section><section class="recording-section"><div class="recording-table-heading"><h2>${esc(tr('financial.investment_activity_f52165', 'Investment activity'))}</h2><span class="scope-note">${esc(tr('financial.posting_date_range_a7b571', 'Posting date range'))}</span></div>${tableHTML('investment-activity', [tr('financial.activity_date_14bd67', 'Activity date'), tr('financial.activity_81c0d9', 'Activity'), tr('financial.holding_1df195', 'Holding'), { label: tr('financial.cash_change_e88e53', 'Cash change'), align: 'end', monetary: true }, { label: tr('financial.realized_result_a229ad', 'Realized result'), align: 'end', monetary: true }, tr('financial.note_2c924e', 'Note'), { label: tr('financial.actions_c3cd63', 'Actions'), align: 'end' }], activities, (a) => `<tr><td>${dateCell(a)}</td><td>${a.kind === 'purchase' ? tr('financial.buy_7ceca5', 'Buy') : a.kind === 'redemption' ? tr('financial.redeem_db3f81', 'Redeem') : tr('financial.sell_fa3cf2', 'Sell')}</td><td>${esc(a.name)}</td><td class="amount">${money(a.cashChangeCents)}</td><td class="amount">${a.resultCents ? money(a.resultCents) : '—'}</td><td>${esc(a.note)}</td><td><div class="recording-actions">${actionButton(tr('financial.edit_530164', 'Edit'), a.kind === 'purchase' ? `data-purchase-edit="${esc(a.id)}"` : `data-disposal-edit="${esc(a.id)}"`)}${a.resultEntryId ? actionButton(tr('financial.gain_expense_645dcb', 'Gain/Expense'), `data-result-entry="${esc(a.resultEntryId)}"`) : ''}${a.kind !== 'purchase' ? actionButton(tr('ui.delete', 'Delete'), `data-disposal-delete="${esc(a.id)}"`) : ''}</div></td></tr>`, activityPage, 20, tr('financial.no_investment_activity_in_this_posting_date_range_fe62a6', 'No investment activity in this posting-date range.'))}</section>`;
     bindPager(root, 'holdings', holdings.length, holdingPage, 20, render);
     bindPager(root, 'investment-activity', activities.length, activityPage, 20, render);
   }
@@ -266,21 +337,27 @@ export function createInvestmentsUI(ctx) {
       if (button.dataset.disposalEdit) showDisposal(button.dataset.disposalEdit);
       if (button.dataset.purchaseDelete)
         confirmAction(
-          'Remove holding?',
-          'The holding can be removed only if its investment relationships remain valid. No Gain or transfer is removed automatically.',
+          tr('financial.remove_holding_aa2652', 'Remove holding?'),
+          tr(
+            'financial.the_holding_can_be_removed_only_if_its_investment_relation_cb96c4',
+            'The holding can be removed only if its investment relationships remain valid. No Gain or transfer is removed automatically.',
+          ),
           () => ctx.command({ type: 'purchase.delete', id: button.dataset.purchaseDelete }),
-          'Remove holding',
+          tr('financial.remove_holding_b962be', 'Remove holding'),
         );
       if (button.dataset.disposalDelete)
         confirmAction(
-          'Delete investment activity?',
-          'Only a removal that leaves valid links can be saved. A linked Gain/Expense is not deleted automatically.',
+          tr('financial.delete_investment_activity_ff96ab', 'Delete investment activity?'),
+          tr(
+            'financial.only_a_removal_that_leaves_valid_links_can_be_saved_a_link_a4099f',
+            'Only a removal that leaves valid links can be saved. A linked Gain/Expense is not deleted automatically.',
+          ),
           () => ctx.command({ type: 'disposal.delete', id: button.dataset.disposalDelete }),
-          'Delete activity',
+          tr('financial.delete_activity_8e42c0', 'Delete activity'),
         );
       if (button.dataset.resultEntry) ctx.showEntry?.(button.dataset.resultEntry);
     } catch (error) {
-      ctx.notify(error.message, true);
+      ctx.notify(error, true);
     }
   });
   return {

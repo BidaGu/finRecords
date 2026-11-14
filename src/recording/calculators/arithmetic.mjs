@@ -1,3 +1,4 @@
+import { fieldDescriptor } from '../core/values.mjs';
 import { assert } from '../core/values.mjs';
 
 export const MAX_CENTS = BigInt(Number.MAX_SAFE_INTEGER);
@@ -28,15 +29,25 @@ export function scaledDecimal(units, places) {
   return digits.slice(0, -places) + (fraction ? `.${fraction}` : '');
 }
 export function decimalInput(value, places, label, positive = false) {
-  assert(typeof value === 'string', `${label} must be a decimal number.`);
+  assert(typeof value === 'string', `${label} must be a decimal number.`, {
+    code: 'errors.calculators.arithmetic.must-be-a-decimal-number',
+    params: { label: label, ...fieldDescriptor(label) },
+  });
   const text = value.trim();
   assert(
     new RegExp(`^\\d+(?:\\.\\d{1,${places}})?$`).test(text),
     `${label} must use digits and at most ${places} decimal places, without signs or separators.`,
+    {
+      code: 'errors.calculators.arithmetic.must-use-digits-and-at-most-decimal-places-without-signs-or-separators',
+      params: { label: label, places: places, ...fieldDescriptor(label) },
+    },
   );
   const [whole, fraction = ''] = text.split('.');
   const units = BigInt(whole + fraction.padEnd(places, '0'));
-  assert(!positive || units > 0n, `${label} must be greater than zero.`);
+  assert(!positive || units > 0n, `${label} must be greater than zero.`, {
+    code: 'errors.calculators.arithmetic.must-be-greater-than-zero',
+    params: { label: label, ...fieldDescriptor(label) },
+  });
   return { units, text: scaledDecimal(units, places) };
 }
 export function rationalDisplay(numerator, denominator, places) {

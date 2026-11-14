@@ -45,12 +45,17 @@ export function analyzeEntries(snapshot, options = {}) {
   const { entryIds, from, through } = options;
   assertDate(from, 'From activity date');
   assertDate(through, 'Through activity date');
-  assert(from <= through, 'From activity date must not be after Through activity date.');
+  assert(from <= through, 'From activity date must not be after Through activity date.', {
+    code: 'errors.analysis.entry-analysis.from-activity-date-must-not-be-after-through-activity-date',
+  });
   const firstMonth = monthIndex(from),
     monthCount = monthIndex(through) - firstMonth + 1;
   assert(
     monthCount <= MAX_ANALYSIS_MONTHS,
     'Choose an activity date range covering at most 1,200 calendar months.',
+    {
+      code: 'errors.analysis.entry-analysis.choose-an-activity-date-range-covering-at-most-1-200-calendar-months',
+    },
   );
   assertArray(entryIds, 'Selected entry IDs');
   const selected = new Set(entryIds),
@@ -58,7 +63,9 @@ export function analyzeEntries(snapshot, options = {}) {
     existing = new Set(ledger.entries.map((entry) => entry.id));
   for (const id of selected) {
     assertId(id, 'Selected entry ID');
-    assert(existing.has(id), 'Analysis selection must reference existing entries.');
+    assert(existing.has(id), 'Analysis selection must reference existing entries.', {
+      code: 'errors.analysis.entry-analysis.analysis-selection-must-reference-existing-entries',
+    });
   }
 
   const totals = emptyTotals(),

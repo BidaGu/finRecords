@@ -21,8 +21,8 @@ async function walk(dir) {
   return files;
 }
 const sources = await walk(path.join(root, 'src/recording'));
-if (sources.length !== 34)
-  throw new Error(`Expected 34 application modules; found ${sources.length}.`);
+if (sources.length !== 38)
+  throw new Error(`Expected 38 application modules; found ${sources.length}.`);
 for (const file of sources) {
   const result = spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' });
   if (result.status !== 0) throw new Error(result.stderr);

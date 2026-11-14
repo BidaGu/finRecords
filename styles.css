@@ -271,6 +271,42 @@ textarea::placeholder {
   height: 16px;
   flex: none;
 }
+.header-file-icon {
+  display: none;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+.header-language-control select {
+  width: 96px;
+  min-height: 38px;
+  padding: 7px 5px;
+  border: 1px solid #59617e;
+  border-radius: 7px;
+  color: white;
+  background: #373e5e;
+  font-size: 11px;
+}
+.header-language-control select:disabled {
+  opacity: 0.5;
+}
+.header-language-control option {
+  color: #252941;
+  background: white;
+}
+.menu-panel button .file-action-title {
+  color: inherit;
+  font-size: inherit;
+}
+:lang(zh-CN) {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
 .currency-label {
   font-size: 11px;
   font-weight: 650;
@@ -7286,9 +7322,23 @@ dialog::backdrop {
     max-height: min(280px, 36dvh);
   }
 }
-@media (max-width: 480px) {
+@media (max-width: 600px) {
   .recording-page .brand-mark {
     display: none;
+  }
+  .header-file-label {
+    display: none;
+  }
+  .header-file-icon {
+    display: block;
+  }
+  .header-language-control select {
+    width: 64px;
+    font-size: 10px;
+    padding-inline: 2px;
+  }
+  .recording-page .header-actions .button {
+    padding-inline: 6px;
   }
 }
 @media (max-width: 380px) {
@@ -7769,6 +7819,12 @@ dialog::backdrop {
 }
 .account-analysis-heading {
   margin-top: 28px;
+}
+.analysis-chart-unit,
+.analysis-legend-units {
+  margin: 6px 0;
+  color: var(--muted);
+  font-size: 11px;
 }
 .account-analysis-heading .recording-note {
   margin: 10px 0 0;

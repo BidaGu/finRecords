@@ -1,26 +1,42 @@
+import { ValidationError } from '../core/values.mjs';
 import { orderedEntries } from '../core/records.mjs';
 import { RECORDING_FORMAT, RECORDING_VERSION } from '../core/values.mjs';
 
 const MAX_BYTES = 50 * 1024 * 1024;
 export function parseDocumentJSON(text) {
-  if (typeof text !== 'string') throw new Error('Choose a JSON text file.');
+  if (typeof text !== 'string')
+    throw new ValidationError('Choose a JSON text file.', {
+      code: 'errors.services.file-io.choose-a-json-text-file',
+    });
   if (new TextEncoder().encode(text).length > MAX_BYTES)
-    throw new Error('Choose a JSON file smaller than 50 MB.');
+    throw new ValidationError('Choose a JSON file smaller than 50 MB.', {
+      code: 'errors.services.file-io.choose-a-json-file-smaller-than-50-mb',
+    });
   let parsed;
   try {
     parsed = JSON.parse(text.replace(/^\uFEFF/, ''));
   } catch {
-    throw new Error('The file is not valid JSON. Your current records have not changed.');
+    throw new ValidationError(
+      'The file is not valid JSON. Your current records have not changed.',
+      {
+        code: 'errors.services.file-io.the-file-is-not-valid-json-your-current-records-have-not-changed',
+      },
+    );
   }
   if (parsed?.format !== RECORDING_FORMAT || parsed.version !== RECORDING_VERSION)
-    throw new Error(
+    throw new ValidationError(
       'Open a supported Finance Records JSON file. Older formats are not converted automatically.',
+      {
+        code: 'errors.services.file-io.open-a-supported-finance-records-json-file-older-formats-are-not-converted-automatic',
+      },
     );
   return parsed;
 }
 export function serializeDocumentJSON(document) {
   if (document?.format !== RECORDING_FORMAT || document.version !== RECORDING_VERSION)
-    throw new Error('Save a supported Finance Records document.');
+    throw new ValidationError('Save a supported Finance Records document.', {
+      code: 'errors.services.file-io.save-a-supported-finance-records-document',
+    });
   return JSON.stringify(document, null, 2) + '\n';
 }
 function csvCell(value) {
@@ -34,24 +50,27 @@ function decimalAmount(cents) {
     absolute = negative ? -value : value;
   return `${negative ? '-' : ''}${absolute / 100n}.${String(absolute % 100n).padStart(2, '0')}`;
 }
-export function toCSV(document) {
+export function toCSV(document, { t = (_key, fallback) => fallback } = {}) {
   const { ledger } = document;
   const categories = new Map(ledger.categories.map((category) => [category.id, category.label]));
   const accounts = new Map(ledger.accounts.map((account) => [account.id, account.name]));
   const ordered = orderedEntries(ledger, document.settings.recordOrder);
   const rows = [
     [
-      'ID',
-      'Activity date',
-      'Activity date unconfirmed',
-      'Posting date',
-      'Posting date unconfirmed',
-      'Type',
-      'Category',
-      'Account',
-      'Merchant or source',
-      'Note',
-      'Amount USD',
+      t('csv.id', 'ID'),
+      t('csv.activityDate', 'Activity date'),
+      t('csv.activityDateUnconfirmed', 'Activity date unconfirmed'),
+      t('csv.postedDate', 'Posting date'),
+      t('csv.postedDateUnconfirmed', 'Posting date unconfirmed'),
+      t('csv.type', 'Type'),
+      t('csv.category', 'Category'),
+      t('csv.account', 'Account'),
+      t('csv.merchant', 'Merchant or source'),
+      t('csv.note', 'Note'),
+      t('csv.amount', 'Amount {currency}', { currency: ledger.currency }).replace(
+        '{currency}',
+        ledger.currency,
+      ),
     ],
     ...ordered.map((entry) => [
       entry.id,
@@ -70,7 +89,10 @@ export function toCSV(document) {
   return '\uFEFF' + rows.map((row) => row.map(csvCell).join(',')).join('\r\n') + '\r\n';
 }
 export async function readJSONFile(file) {
-  if (!file || file.size > MAX_BYTES) throw new Error('Choose a JSON file smaller than 50 MB.');
+  if (!file || file.size > MAX_BYTES)
+    throw new ValidationError('Choose a JSON file smaller than 50 MB.', {
+      code: 'errors.services.file-io.choose-a-json-file-smaller-than-50-mb',
+    });
   return parseDocumentJSON(await file.text());
 }
 export function downloadText(text, name, type = 'application/json') {
@@ -82,11 +104,16 @@ export function downloadText(text, name, type = 'application/json') {
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-export async function chooseDirectFile() {
+export async function chooseDirectFile({ description = 'Recording JSON' } = {}) {
   if (!globalThis.showOpenFilePicker)
-    throw new Error('Direct editing is unavailable in this browser. Use Open JSON and Save.');
+    throw new ValidationError(
+      'Direct editing is unavailable in this browser. Use Open JSON and Save.',
+      {
+        code: 'errors.services.file-io.direct-editing-is-unavailable-in-this-browser-use-open-json-and-save',
+      },
+    );
   const [handle] = await globalThis.showOpenFilePicker({
-    types: [{ description: 'Recording JSON', accept: { 'application/json': ['.json'] } }],
+    types: [{ description, accept: { 'application/json': ['.json'] } }],
   });
   return { handle, file: await handle.getFile() };
 }

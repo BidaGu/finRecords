@@ -144,7 +144,14 @@ function accountHistory(ledger, metadata, accounts, through) {
       }));
     } catch (error) {
       if (!(error instanceof ValidationError)) throw error;
-      return { from, through, months: [], error: error.message };
+      return {
+        from,
+        through,
+        months: [],
+        error: error.message,
+        errorCode: error.code,
+        errorParams: error.params,
+      };
     }
     months.push({ month, through: cutoff, assetsCents, liabilitiesCents, types });
   }
@@ -162,7 +169,9 @@ export function analyzeAccounts(snapshot, options = {}) {
     existing = new Set(ledger.accounts.map((account) => account.id));
   for (const id of selected) {
     assertId(id, 'Selected account ID');
-    assert(existing.has(id), 'Account analysis selection must reference existing accounts.');
+    assert(existing.has(id), 'Account analysis selection must reference existing accounts.', {
+      code: 'errors.analysis.account-analysis.account-analysis-selection-must-reference-existing-accounts',
+    });
   }
   const counts = postingCounts(ledger, selected, through);
   const metadata = ledger.accounts

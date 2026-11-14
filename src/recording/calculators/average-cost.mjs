@@ -1,3 +1,4 @@
+import { fieldDescriptor } from '../core/values.mjs';
 import { assert, assertObject, exact } from '../core/values.mjs';
 import {
   MAX_CENTS,
@@ -14,13 +15,19 @@ const PRICE_SCALE = 1000000n;
 const COST_CENT_SCALE = (SHARE_SCALE * PRICE_SCALE) / 100n;
 
 function purchaseCost(units, label) {
-  assert(units <= MAX_CENTS * COST_CENT_SCALE, `${label} exceeds the exact supported cent range.`);
+  assert(units <= MAX_CENTS * COST_CENT_SCALE, `${label} exceeds the exact supported cent range.`, {
+    code: 'errors.calculators.average-cost.exceeds-the-exact-supported-cent-range',
+    params: { label: label, ...fieldDescriptor(label) },
+  });
   return exact(roundRatio(units, COST_CENT_SCALE));
 }
 function currentPosition(quantity, average) {
   assert(
     quantity <= MAX_CENTS * SHARE_SCALE,
     'Current shares exceed the exact supported share range.',
+    {
+      code: 'errors.calculators.average-cost.current-shares-exceed-the-exact-supported-share-range',
+    },
   );
   const cost = quantity * average;
   return { quantity, cost, costCents: purchaseCost(cost, 'Current cost') };
@@ -30,6 +37,9 @@ function settlePurchase(current, price, added) {
   assert(
     totalShares <= MAX_CENTS * SHARE_SCALE,
     'Resulting shares exceed the exact supported share range.',
+    {
+      code: 'errors.calculators.average-cost.resulting-shares-exceed-the-exact-supported-share-range',
+    },
   );
   const addedCost = added * price,
     totalCost = current.cost + addedCost,
@@ -90,12 +100,18 @@ export function calculateTargetAverageCost(options) {
   const price = decimalInput(options.purchasePrice, 6, 'Purchase price', true);
   const target = decimalInput(options.targetAveragePrice, 6, 'Target average price');
   const { shareMode } = options;
-  assert(shareMode === 'whole' || shareMode === 'fractional', 'Choose Whole or Fractional shares.');
+  assert(
+    shareMode === 'whole' || shareMode === 'fractional',
+    'Choose Whole or Fractional shares.',
+    { code: 'errors.calculators.average-cost.choose-whole-or-fractional-shares' },
+  );
   const increment =
     shareMode === 'whole'
       ? { units: SHARE_SCALE, text: '1' }
       : decimalInput(options.fractionalIncrement, 8, 'Fractional share increment', true);
-  assert(increment.units <= SHARE_SCALE, 'Fractional share increment must not exceed one share.');
+  assert(increment.units <= SHARE_SCALE, 'Fractional share increment must not exceed one share.', {
+    code: 'errors.calculators.average-cost.fractional-share-increment-must-not-exceed-one-share',
+  });
   const current = currentPosition(quantity.units, average.units);
   const direction =
     average.units > target.units ? 'down' : average.units < target.units ? 'up' : 'none';
@@ -111,6 +127,8 @@ export function calculateTargetAverageCost(options) {
     status: 'unreachable',
     direction,
     reason: null,
+    reasonCode: null,
+    reasonParams: {},
     inputs,
     shareIncrement: increment.text,
     currentCostCents: current.costCents,
@@ -135,6 +153,12 @@ export function calculateTargetAverageCost(options) {
       price.units === target.units
         ? 'Buying at the target price only approaches it; no finite purchase reaches the target.'
         : `Purchase price must be ${direction === 'down' ? 'below' : 'above'} the target average.`;
+    result.reasonCode =
+      price.units === target.units
+        ? 'calc.average.reason.asymptotic'
+        : direction === 'down'
+          ? 'calc.average.reason.priceBelow'
+          : 'calc.average.reason.priceAbove';
     return result;
   }
   let added = 0n,
@@ -161,6 +185,7 @@ export function calculateTargetAverageCost(options) {
     ...settlement.fields,
     status: direction === 'none' ? 'already-met' : 'calculated',
     reason: direction === 'none' ? 'The current average already equals the target.' : null,
+    reasonCode: direction === 'none' ? 'calc.average.reason.alreadyMet' : null,
     theoreticalAdditionalShares: {
       ...rationalStrings(theoreticalNumerator, theoreticalDenominator),
       ...rationalDisplay(theoreticalNumerator, theoreticalDenominator, 12),

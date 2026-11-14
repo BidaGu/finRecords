@@ -15,20 +15,56 @@
     <script type="module" src="./src/recording/app.mjs"></script>
   </head>
   <body class="recording-page">
-    <a class="skip-link" href="#main">Skip to main content</a>
+    <a class="skip-link" href="#main" data-i18n="shell.skip">Skip to main content</a>
     <header class="app-header">
       <div class="header-inner">
         <div class="brand">
           <span class="brand-mark" aria-hidden="true"
             ><svg viewBox="0 0 24 24"><path d="M6 18V6h12M6 12h9M11 18h7" /></svg
           ></span>
-          <span class="brand-name">Finance Records</span>
+          <span class="brand-name" data-i18n="shell.title">Finance Records</span>
         </div>
         <div class="header-actions">
-          <span class="currency-label">USD</span
+          <span id="ledger-currency" class="currency-label">USD</span
           ><span class="header-divider" aria-hidden="true"></span
-          ><button id="new-file" class="button button-quiet" type="button">New file</button
-          ><button id="open-file" class="button button-outline" type="button">Open JSON</button>
+          ><button
+            id="new-file"
+            aria-label="New file"
+            title="New file"
+            data-i18n-aria-label="shell.newFile"
+            data-i18n-title="shell.newFile"
+            class="button button-quiet"
+            type="button"
+          >
+            <svg class="header-file-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M12 12v6M9 15h6"
+              /></svg
+            ><span class="header-file-label" data-i18n="shell.newFile">New file</span></button
+          ><button
+            id="open-file"
+            aria-label="Open JSON"
+            title="Open JSON"
+            data-i18n-aria-label="shell.openJSON"
+            data-i18n-title="shell.openJSON"
+            class="button button-outline"
+            type="button"
+          >
+            <svg class="header-file-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 7h6l2 2h10l-3 11H3zM3 7V4h7l2 3M3 12h17" /></svg
+            ><span class="header-file-label" data-i18n="shell.openJSON">Open JSON</span>
+          </button>
+          <label class="header-language-control"
+            ><span class="visually-hidden" data-i18n="shell.language">Interface language</span
+            ><select
+              id="language-select"
+              aria-label="Interface language"
+              data-i18n-aria-label="shell.language"
+            >
+              <option value="en">English</option>
+              <option value="zh-CN">简体中文</option>
+            </select></label
+          >
           <a
             id="github-link"
             class="button button-outline github-link"
@@ -36,7 +72,9 @@
             target="_blank"
             rel="noopener noreferrer"
             aria-label="GitHub repository (opens in a new tab)"
+            data-i18n-aria-label="shell.github"
             title="GitHub repository (opens in a new tab)"
+            data-i18n-title="shell.github"
           >
             <span class="github-label">GitHub</span>
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -49,7 +87,11 @@
       </div>
     </header>
     <main id="main" class="workspace">
-      <section class="file-bar" aria-label="Current data file">
+      <section
+        class="file-bar"
+        aria-label="Current data file"
+        data-i18n-aria-label="shell.currentFile"
+      >
         <div class="file-details">
           <span class="file-icon" aria-hidden="true">▤</span>
           <div class="file-copy">
@@ -63,24 +105,41 @@
           </div>
         </div>
         <div class="file-actions">
-          <button id="save-file" class="button button-compact button-ink" type="button">
+          <button
+            id="save-file"
+            class="button button-compact button-ink"
+            type="button"
+            data-i18n="shell.save"
+          >
             Save
           </button>
           <details class="file-menu">
-            <summary class="button button-compact button-outline" aria-label="More file actions">
+            <summary
+              class="button button-compact button-outline"
+              aria-label="More file actions"
+              data-i18n-aria-label="shell.moreFileActions"
+            >
               •••
             </summary>
             <div class="menu-panel">
               <button id="save-as" type="button">
-                Save as…<span>Choose a download filename</span></button
+                <span class="file-action-title" data-i18n="shell.saveAs">Save as…</span
+                ><span data-i18n="shell.filenameHelp">Choose a download filename</span></button
               ><button id="download-json" type="button">
-                Download JSON copy<span>Editable data file</span></button
+                <span class="file-action-title" data-i18n="shell.downloadCopy"
+                  >Download JSON copy</span
+                ><span data-i18n="shell.editableFile">Editable data file</span></button
               ><button id="export-csv" type="button">
-                Export CSV<span>All entries · Open in Excel</span></button
+                <span class="file-action-title" data-i18n="shell.exportCSV">Export CSV</span
+                ><span data-i18n="shell.csvHelp">All entries · Open in Excel</span></button
               ><button id="open-direct" type="button" hidden>
-                Open for direct editing…<span>Supported browsers only</span></button
+                <span class="file-action-title" data-i18n="shell.openDirect"
+                  >Open for direct editing…</span
+                ><span data-i18n="shell.supportedBrowsers">Supported browsers only</span></button
               ><button id="save-direct" type="button" hidden>
-                Save directly to file…<span>Supported browsers only</span>
+                <span class="file-action-title" data-i18n="shell.saveDirect"
+                  >Save directly to file…</span
+                ><span data-i18n="shell.supportedBrowsers">Supported browsers only</span>
               </button>
             </div>
           </details>
@@ -88,7 +147,12 @@
       </section>
       <input id="file-input" type="file" accept=".json,application/json" hidden />
       <div id="message" class="message" role="status" aria-live="polite" hidden></div>
-      <div class="workspace-tabs" role="tablist" aria-label="Ledger section">
+      <div
+        class="workspace-tabs"
+        role="tablist"
+        aria-label="Ledger section"
+        data-i18n-aria-label="shell.ledgerSection"
+      >
         <button
           id="tab-accounts"
           class="workspace-tab"
@@ -96,6 +160,7 @@
           role="tab"
           aria-selected="true"
           aria-controls="accounts-panel"
+          data-i18n="shell.accounts"
         >
           Accounts &amp; Assets</button
         ><button
@@ -106,6 +171,7 @@
           aria-selected="false"
           aria-controls="records-panel"
           tabindex="-1"
+          data-i18n="shell.records"
         >
           Income &amp; Expenses
         </button>
@@ -117,6 +183,7 @@
           aria-selected="false"
           aria-controls="analysis-panel"
           tabindex="-1"
+          data-i18n="shell.analysis"
         >
           Analysis
         </button>
@@ -128,6 +195,7 @@
           aria-selected="false"
           aria-controls="calculators-panel"
           tabindex="-1"
+          data-i18n="shell.calculators"
         >
           Calculators
         </button>
@@ -138,7 +206,12 @@
         role="tabpanel"
         aria-labelledby="tab-accounts"
       >
-        <div class="calculator-tabs account-tabs" role="tablist" aria-label="Accounts">
+        <div
+          class="calculator-tabs account-tabs"
+          role="tablist"
+          aria-label="Accounts"
+          data-i18n-aria-label="shell.accountTabs"
+        >
           <button
             id="account-tab-balances"
             class="calculator-tab account-tab"
@@ -146,6 +219,7 @@
             role="tab"
             aria-selected="true"
             aria-controls="account-balances-panel"
+            data-i18n="shell.balances"
           >
             Balances</button
           ><button
@@ -156,6 +230,7 @@
             aria-selected="false"
             aria-controls="account-transfers-panel"
             tabindex="-1"
+            data-i18n="shell.transfers"
           >
             Transfers</button
           ><button
@@ -166,6 +241,7 @@
             aria-selected="false"
             aria-controls="account-statements-panel"
             tabindex="-1"
+            data-i18n="shell.statements"
           >
             Statements
           </button>
@@ -208,6 +284,7 @@
           id="analysis-presets-bar"
           class="analysis-presets-bar"
           aria-label="Analysis presets"
+          data-i18n-aria-label="shell.analysisPresets"
         >
           <div id="selection-presets-content"></div>
         </section>
@@ -220,7 +297,12 @@
         aria-labelledby="tab-analysis"
         hidden
       >
-        <div class="calculator-tabs analysis-tabs" role="tablist" aria-label="Analysis section">
+        <div
+          class="calculator-tabs analysis-tabs"
+          role="tablist"
+          aria-label="Analysis section"
+          data-i18n-aria-label="shell.analysisSection"
+        >
           <button
             id="analysis-tab-accounts"
             class="calculator-tab analysis-tab"
@@ -228,6 +310,7 @@
             role="tab"
             aria-selected="true"
             aria-controls="analysis-accounts-panel"
+            data-i18n="shell.accounts"
           >
             Accounts &amp; Assets
           </button>
@@ -239,6 +322,7 @@
             aria-selected="false"
             aria-controls="analysis-records-panel"
             tabindex="-1"
+            data-i18n="shell.records"
           >
             Income &amp; Expenses
           </button>
@@ -269,7 +353,7 @@
         <div id="calculator-workspace-content"></div>
       </section>
       <footer class="workspace-footer">
-        <p>
+        <p data-i18n="shell.footer">
           Your records stay in this browser tab until saved to JSON. Keep financial data outside
           public hosting.
         </p>

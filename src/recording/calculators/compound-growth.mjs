@@ -1,3 +1,4 @@
+import { fieldDescriptor } from '../core/values.mjs';
 import { assert, assertObject, cents, exact } from '../core/values.mjs';
 import { MAX_CENTS, ceilDiv, roundRatio, gcd, decimalRatio } from './arithmetic.mjs';
 
@@ -116,7 +117,9 @@ function project(inputs, rate, precision) {
       ending = exactEndpoint(month, inputs, rational);
       if (ending === null) return null;
     }
-    assert(ending <= MAX_CENTS, 'Projected balance exceeds the exact supported cent range.');
+    assert(ending <= MAX_CENTS, 'Projected balance exceeds the exact supported cent range.', {
+      code: 'errors.calculators.compound-growth.projected-balance-exceeds-the-exact-supported-cent-range',
+    });
     rows.push({
       month,
       openingBalanceCents: exact(opening),
@@ -131,7 +134,10 @@ function project(inputs, rate, precision) {
 }
 function nonnegativeMoney(value, label) {
   cents(value, label);
-  assert(value >= 0, `${label} must not be negative.`);
+  assert(value >= 0, `${label} must not be negative.`, {
+    code: 'errors.calculators.compound-growth.must-not-be-negative',
+    params: { label: label, ...fieldDescriptor(label) },
+  });
   return BigInt(value);
 }
 
@@ -156,17 +162,30 @@ export function calculateCompoundGrowth(options) {
       Number.isFinite(annualRatePercent) &&
       annualRatePercent >= 0,
     'Annual rate must be a finite nonnegative percentage.',
+    {
+      code: 'errors.calculators.compound-growth.annual-rate-must-be-a-finite-nonnegative-percentage',
+    },
   );
-  assert(rateType === 'nominal' || rateType === 'apy', 'Choose Nominal annual rate or APY.');
+  assert(rateType === 'nominal' || rateType === 'apy', 'Choose Nominal annual rate or APY.', {
+    code: 'errors.calculators.compound-growth.choose-nominal-annual-rate-or-apy',
+  });
   assert(
     Number.isSafeInteger(years) && years >= 0 && Number.isSafeInteger(months) && months >= 0,
     'Years and months must be nonnegative whole numbers.',
+    {
+      code: 'errors.calculators.compound-growth.years-and-months-must-be-nonnegative-whole-numbers',
+    },
   );
   const duration = BigInt(years) * 12n + BigInt(months);
-  assert(duration <= BigInt(MAX_GROWTH_MONTHS), 'Choose a term of at most 1,200 months.');
+  assert(duration <= BigInt(MAX_GROWTH_MONTHS), 'Choose a term of at most 1,200 months.', {
+    code: 'errors.calculators.compound-growth.choose-a-term-of-at-most-1-200-months',
+  });
   assert(
     typeof contributionsEnabled === 'boolean',
     'Regular contributions must be enabled or disabled.',
+    {
+      code: 'errors.calculators.compound-growth.regular-contributions-must-be-enabled-or-disabled',
+    },
   );
   let contribution = 0n,
     interval = 0,
@@ -176,10 +195,12 @@ export function calculateCompoundGrowth(options) {
     assert(
       Object.hasOwn(CONTRIBUTIONS, contributionFrequency),
       'Choose a supported contribution frequency.',
+      { code: 'errors.calculators.compound-growth.choose-a-supported-contribution-frequency' },
     );
     assert(
       contributionTiming === 'end' || contributionTiming === 'beginning',
       'Choose Beginning or End contribution timing.',
+      { code: 'errors.calculators.compound-growth.choose-beginning-or-end-contribution-timing' },
     );
     interval = CONTRIBUTIONS[contributionFrequency];
     beginning = contributionTiming === 'beginning';
@@ -188,10 +209,14 @@ export function calculateCompoundGrowth(options) {
     count = contributionCount(totalMonths, interval, beginning),
     additional = BigInt(count) * contribution,
     contributed = initial + additional;
-  assert(contributed <= MAX_CENTS, 'Total contributed exceeds the exact supported cent range.');
+  assert(contributed <= MAX_CENTS, 'Total contributed exceeds the exact supported cent range.', {
+    code: 'errors.calculators.compound-growth.total-contributed-exceeds-the-exact-supported-cent-range',
+  });
   let frequency = 1;
   if (rateType === 'nominal') {
-    assert(Object.hasOwn(COMPOUNDING, compounding), 'Choose a supported compounding frequency.');
+    assert(Object.hasOwn(COMPOUNDING, compounding), 'Choose a supported compounding frequency.', {
+      code: 'errors.calculators.compound-growth.choose-a-supported-compounding-frequency',
+    });
     frequency = COMPOUNDING[compounding];
   }
   const [rateNumerator, rateDenominator] = decimalRatio(annualRatePercent);
@@ -214,6 +239,9 @@ export function calculateCompoundGrowth(options) {
   assert(
     Number.isFinite(effectiveAnnualYieldPercent),
     'Effective annual yield exceeds the supported numerical range.',
+    {
+      code: 'errors.calculators.compound-growth.effective-annual-yield-exceeds-the-supported-numerical-range',
+    },
   );
   const inputs = { initial, contribution, interval, beginning, totalMonths };
   let monthly = totalMonths === 0 ? [] : null;
@@ -224,6 +252,9 @@ export function calculateCompoundGrowth(options) {
   assert(
     monthly !== null,
     'This scenario is too close to a half-cent boundary to round reliably. Adjust the inputs.',
+    {
+      code: 'errors.calculators.compound-growth.this-scenario-is-too-close-to-a-half-cent-boundary-to-round-reliably-adjust-the-inpu',
+    },
   );
   const yearly = [];
   for (const row of monthly) {

@@ -1,3 +1,4 @@
+import { fieldDescriptor } from '../core/values.mjs';
 import { assert, assertObject, cents, exact } from '../core/values.mjs';
 import {
   MAX_CENTS,
@@ -22,11 +23,17 @@ const AMOUNTS = [
 const abs = (value) => (value < 0n ? -value : value);
 
 function checkedShares(units, label) {
-  assert(units <= MAX_CENTS * SHARE_SCALE, `${label} exceeds the exact supported share range.`);
+  assert(units <= MAX_CENTS * SHARE_SCALE, `${label} exceeds the exact supported share range.`, {
+    code: 'errors.calculators.stock-sale.exceeds-the-exact-supported-share-range',
+    params: { label: label, ...fieldDescriptor(label) },
+  });
   return scaledDecimal(units, 8);
 }
 function checkedAmount(units, label) {
-  assert(abs(units) <= MAX_CENTS * CENT_SCALE, `${label} exceeds the exact supported cent range.`);
+  assert(abs(units) <= MAX_CENTS * CENT_SCALE, `${label} exceeds the exact supported cent range.`, {
+    code: 'errors.calculators.stock-sale.exceeds-the-exact-supported-cent-range',
+    params: { label: label, ...fieldDescriptor(label) },
+  });
   return exact(roundSignedRatio(units, CENT_SCALE));
 }
 function amountFields(raw, prefix = '') {
@@ -73,27 +80,45 @@ export function calculateStockSale(options) {
     options.sellingFeesCents === undefined ? 0 : options.sellingFeesCents,
     'Selling fees',
   );
-  assert(sellingFeesCents >= 0, 'Selling fees must not be negative.');
+  assert(sellingFeesCents >= 0, 'Selling fees must not be negative.', {
+    code: 'errors.calculators.stock-sale.selling-fees-must-not-be-negative',
+  });
   assert(
     Array.isArray(options.lots) && options.lots.length > 0 && options.lots.length <= MAX_SALE_LOTS,
     `Enter between 1 and ${MAX_SALE_LOTS} stock lots.`,
+    {
+      code: 'errors.calculators.stock-sale.enter-between-1-and-stock-lots',
+      params: { MAX_SALE_LOTS: MAX_SALE_LOTS },
+    },
   );
   const ids = new Set();
   const rawLots = Array.from(options.lots, (lot, index) => {
     const name = `Lot ${index + 1}`;
     assertObject(lot, name);
-    assert(typeof lot.id === 'string' && lot.id.trim().length > 0, `${name} needs a nonblank ID.`);
-    assert(!ids.has(lot.id), 'Stock lot IDs must be unique.');
+    assert(typeof lot.id === 'string' && lot.id.trim().length > 0, `${name} needs a nonblank ID.`, {
+      code: 'errors.calculators.stock-sale.needs-a-nonblank-id',
+      params: { name: name, index: index + 1 },
+    });
+    assert(!ids.has(lot.id), 'Stock lot IDs must be unique.', {
+      code: 'errors.calculators.stock-sale.stock-lot-ids-must-be-unique',
+    });
     ids.add(lot.id);
     const label = lot.label === undefined ? '' : lot.label;
     assert(
       typeof label === 'string' && label.length <= 100,
       `${name} label must be at most 100 characters.`,
+      {
+        code: 'errors.calculators.stock-sale.label-must-be-at-most-100-characters',
+        params: { name: name, index: index + 1 },
+      },
     );
     const held = decimalInput(lot.sharesHeld, 8, `${name} shares held`, true);
     const basis = decimalInput(lot.costBasisPerShare, 6, `${name} cost basis per share`);
     const sold = decimalInput(lot.sharesToSell, 8, `${name} shares to sell`);
-    assert(sold.units <= held.units, `${name} shares to sell must not exceed shares held.`);
+    assert(sold.units <= held.units, `${name} shares to sell must not exceed shares held.`, {
+      code: 'errors.calculators.stock-sale.shares-to-sell-must-not-exceed-shares-held',
+      params: { name: name, index: index + 1 },
+    });
     const remaining = held.units - sold.units;
     const raw = {
       held: held.units,
@@ -119,6 +144,7 @@ export function calculateStockSale(options) {
   assert(
     rawLots.some(({ raw }) => raw.sold > 0n),
     'Sell a positive quantity from at least one lot.',
+    { code: 'errors.calculators.stock-sale.sell-a-positive-quantity-from-at-least-one-lot' },
   );
   const sum = (key) => rawLots.reduce((total, { raw }) => total + raw[key], 0n);
   const sharesHeld = checkedShares(sum('held'), 'Total shares held');
